@@ -1,4 +1,4 @@
-# JojiMail
+# JojiMailAI
 
 A cross-platform email client (Capacitor + React/Vite/TypeScript web UI) generated from spec files: `SKILL.md` defines the overall process and architecture, and each `generate_*.md` is the spec for one component. User stories in the specs are the source of truth for tests and code. `TODO.md` is the longer-term feature backlog (derived from FairEmail), not a spec.
 
