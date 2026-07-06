@@ -1,38 +1,29 @@
 ---
 name: capacitor-email-client
 description: >
-  This skill is to architect, design, and program a cross-platform email client
-  built as a Capacitor app with a web-framework UI (React + Vite + TypeScript by
-  default; the provider layer is framework-agnostic). All mail-server access goes
-  through the **Proxy design pattern**: the UI talks only to a `MailProvider`
-  TypeScript interface, and each email platform is a concrete proxy object that
-  stands in for its remote server (lazy connection, normalized errors, opaque
-  pagination). The first platform is Gmail, connected through the `simplegmail`
-  library (the JosephMRally fork, https://github.com/JosephMRally/simplegmail).
-  Because `simplegmail` is Python and cannot run inside the webview, Gmail is
-  reached via a small localhost Python bridge service that wraps `simplegmail`;
-  the app-side `GmailProvider` proxy calls that bridge. **AI is fundamental to
-  how the client runs and is entirely self-hosted**: a `MailIntelligence`
-  interface — implemented by `LocalIntelligence` over the OpenAI-compatible
-  `/v1` endpoint that Ollama, vLLM, and LM Studio all expose (official `openai`
-  TypeScript SDK, constrained JSON output) — auto-tags arriving mail into the
-  tag model, digests long threads, drafts replies, and interprets
-  natural-language search, with no mail content ever sent to a cloud AI
-  service. Triggers on "build an email client", "multi-account
-  mail app", "Capacitor mail app", "AI email client", "add another mail
-  provider", or "connect the app to Gmail" — even without the word "proxy".
-
-  Only generate code; never run the app or the bridge against a live mailbox.
-  Running pytest and vitest is always fine.
+  Architects, designs, and programs a cross-platform, AI-native, local-first
+  email client: a Capacitor app (React + Vite + TypeScript) where every backend
+  sits behind an interface via the Proxy design pattern. Mail platforms plug in
+  as proxies (Gmail first, reached through a localhost Python bridge wrapping
+  the JosephMRally simplegmail fork); self-hosted AI (Ollama, vLLM, or LM
+  Studio via their OpenAI-compatible /v1 endpoints) auto-tags arriving mail,
+  digests threads, drafts replies, and interprets natural-language search;
+  synced mail persists in on-device SQLite with Bloom-filter text search.
+  Organization is tag-based (no folders) and mail content never leaves the
+  user's machines. Use when asked to build an email client, a multi-account or
+  Capacitor mail app, an AI, offline, local-first, or private email client, to
+  add another mail provider, or to connect the app to Gmail.
 ---
 
 # Capacitor Email Client (MailProvider proxies → Gmail via simplegmail bridge → web UI)
-Humans shouldn't program - they make to many mistakes
+Humans shouldn't program - they make too many mistakes
 
-This skill was designed as a POC to run in Claude's Cowork. Only generate code; never run
+This skill was designed as a POC to run in Claude's code. Only generate code; never run
 the pipeline against a live mailbox — "do not execute" means live runs, and
-running pytest/vitest is always fine. Follow the Test Driven Development
-standards for generating code (red->green->refactor). Tests must not use real
+running pytest/vitest is always fine. Follow Skill Driven Development (SDD:
+the user-story specs under `user-stories/` are the single source of truth —
+write code only to satisfy them, and change the spec before changing behavior)
+and Test Driven Development (TDD: red->green->refactor) when generating code. Tests must not use real
 email addresses; use synthetic fixture data modeled on the shape of real
 `simplegmail` `Message` objects (Python side) and on the shared wire schema
 (TypeScript side). Follow pytest convention for Python tests and vitest
@@ -57,24 +48,26 @@ level deep from here:
 | UI + Capacitor shell | [user-stories/typescript_email_ui.md](user-stories/typescript_email_ui.md) | Touching screens or the shell |
 
 ## Architecture
+The React UI depends on three interfaces, each resolved at the composition
+root, each with an in-memory Fake for tests:
+
 ```
-┌────────────────────────── Capacitor shell (iOS / Android / web) ──────────────────────────┐
-│  React UI ──▶ ProviderRegistry ──▶ MailProvider (interface)                               │
-│     │                                  ▲            ▲                                     │
-│     │                           GmailProvider   (future: ImapProvider, OutlookProvider)   │
-│     │                            (remote proxy)     │                                     │
-│     ├──▶ MailIntelligence (interface) ◀── LocalIntelligence (`openai` SDK)                │
-│     │              ▲                                │            │                        │
-│     │       FakeIntelligence (tests)                │            │                        │
-│     └──▶ MailStore (interface) ◀── SqliteMailStore (SQLite + per-message Bloom filters)   │
-│                    ▲                                │            │                        │
-│             FakeMailStore (tests)                   │            │                        │
-└─────────────────────────────────────────────────────┼────────────┼────────────────────────┘
-                                    HTTP, 127.0.0.1 only     self-hosted LLM server
-                                bridge/app.py  (Python facade   (Ollama | vLLM | LM Studio,
-                                 over `simplegmail`)             OpenAI-compatible /v1)
-                                       │
-                                    Gmail API
+Capacitor shell (iOS / Android / web)
+
+React UI ──▶ MailProvider (interface, via ProviderRegistry)
+              ◀── GmailProvider ──HTTP 127.0.0.1──▶ bridge/app.py ──▶ Gmail API
+                   (remote proxy)                    (Python facade over `simplegmail`)
+              ◀── future: ImapProvider, OutlookProvider
+              ◀── FakeProvider (tests)
+
+React UI ──▶ MailIntelligence (interface)
+              ◀── LocalIntelligence ──▶ self-hosted LLM server
+                   (`openai` SDK)        (Ollama | vLLM | LM Studio, OpenAI-compatible /v1)
+              ◀── FakeIntelligence (tests)
+
+React UI ──▶ MailStore (interface)
+              ◀── SqliteMailStore — on-device SQLite + per-message Bloom filters; no network
+              ◀── FakeMailStore (tests)
 ```
 The UI never imports a concrete provider; it resolves one from the registry.
 Each concrete provider is a **Proxy**: a local surrogate for a remote mail
@@ -99,7 +92,7 @@ carrying a Bloom filter of its content words (stop words excluded) that
 prescreens text search — candidates are verified against stored text, so
 results are exact and reading/search work offline.
 
-# Steps:
+## Steps
 The development of each component must follow a strict Test Driven Development
 (TDD) loop — a feedback loop where the test suite is the validator: run it,
 fix, re-run, and **do not proceed to the next step until it passes**.
@@ -179,9 +172,13 @@ Build Progress:
       configured via `VITE_AI_BASE_URL` and `VITE_AI_MODEL`, and that without
       one the client still reads, tags, and sends mail — only the AI
       affordances are disabled. Mail content never leaves the user's machines.
-    - **Show how to start the two halves in order**: `bridge/app.py` first,
-      then the web app (`npm run dev` for browser, `npx cap run ios|android`
-      for device), with each command's inputs and outputs.
+    - **Show how to start the three runtime pieces in order, each with a
+      verify step before the next** (the feedback loop): `bridge/app.py`
+      (verify `GET /health`), the optional AI server (verify the configured
+      model appears under `GET /v1/models`), then the web app (`npm run dev`
+      for browser, `npx cap run ios|android` for device).
+    - **State that synced mail persists in on-device SQLite** and stays
+      readable and text-searchable offline.
     - **Say nothing about how Gmail is reached** beyond: the bridge talks to
       Gmail itself; the app talks only to the bridge. No `simplegmail` or
       Gmail API internals.
