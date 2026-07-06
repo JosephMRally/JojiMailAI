@@ -32,6 +32,12 @@ convention for TypeScript tests.
 This file and every spec follow Anthropic's [skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)
 — progressive disclosure and workflows with feedback loops in particular.
 
+## Contents
+- Component specs (progressive disclosure)
+- Architecture
+- Steps (TDD loop and constraints)
+- Order of Operations (build checklist and README requirements)
+
 ## Component specs (progressive disclosure)
 
 This file is the overview; the detail lives in one spec per component. **Load
@@ -45,10 +51,11 @@ level deep from here:
 | `GmailProvider` proxy | [user-stories/typescript_gmail_proxy.md](user-stories/typescript_gmail_proxy.md) | Touching the app-side Gmail integration |
 | `MailIntelligence` + `LocalIntelligence` | [user-stories/typescript_mail_intelligence.md](user-stories/typescript_mail_intelligence.md) | Touching the self-hosted AI layer |
 | `MailStore` + `SqliteMailStore` (SQLite + Bloom search) | [user-stories/typescript_mail_store.md](user-stories/typescript_mail_store.md) | Touching local storage, offline, or text search |
+| `MailPlugin` + `PluginHost` (extension points) | [user-stories/typescript_plugin_system.md](user-stories/typescript_plugin_system.md) | Touching plug-ins, extension points, or their settings |
 | UI + Capacitor shell | [user-stories/typescript_email_ui.md](user-stories/typescript_email_ui.md) | Touching screens or the shell |
 
 ## Architecture
-The React UI depends on three interfaces, each resolved at the composition
+The React UI depends on four interfaces, each resolved at the composition
 root, each with an in-memory Fake for tests:
 
 ```
@@ -68,6 +75,10 @@ React UI ──▶ MailIntelligence (interface)
 React UI ──▶ MailStore (interface)
               ◀── SqliteMailStore — on-device SQLite + per-message Bloom filters; no network
               ◀── FakeMailStore (tests)
+
+React UI ──▶ PluginHost (MailPlugin registry; typed extension points, crash-isolated)
+              ◀── plug-ins registered at the composition root
+              ◀── FakePlugin (tests)
 ```
 The UI never imports a concrete provider; it resolves one from the registry.
 Each concrete provider is a **Proxy**: a local surrogate for a remote mail
@@ -91,6 +102,10 @@ blocking plain mail reading and sending.
 carrying a Bloom filter of its content words (stop words excluded) that
 prescreens text search — candidates are verified against stored text, so
 results are exact and reading/search work offline.
+**Extensibility runs through typed extension points**: `PluginHost` dispatches
+to registered `MailPlugin`s (versioned API, capability-declared hooks,
+crash-isolated so a broken plug-in never breaks core mail flows); new mail
+platforms and AI backends plug in through their own interfaces above.
 
 ## Steps
 The development of each component must follow a strict Test Driven Development
@@ -126,11 +141,13 @@ Never edit implementation and tests in the same step.
   intelligence tests; store tests run against an in-memory sql.js database,
   never the native plugin or filesystem. No test may require a live server or
   a running inference server (Ollama/vLLM/LM Studio). UI tests use the
-  in-memory `FakeProvider`, `FakeIntelligence`, and `FakeMailStore`.
+  in-memory `FakeProvider`, `FakeIntelligence`, `FakeMailStore`, and
+  `FakePlugin`.
 - **Proxy discipline**: No file under `src/ui/` may import from
   `src/providers/gmail/`, `src/intelligence/LocalIntelligence.ts`,
-  `src/store/SqliteMailStore.ts`, or any other concrete
-  provider/intelligence/store module. Enforce with a test or lint rule.
+  `src/store/SqliteMailStore.ts`, or any concrete
+  provider/intelligence/store/plug-in module — only the interfaces and the
+  `PluginHost`. Enforce with a test or lint rule.
 - **Validation**: Every response that includes code must also include the
   output of a successful test run (or at least the command used to verify it).
 
@@ -144,10 +161,11 @@ Build Progress:
 - [ ] 3. GmailProvider proxy
 - [ ] 4. Mail intelligence (self-hosted AI)
 - [ ] 5. Mail store (SQLite + Bloom search)
-- [ ] 6. UI + Capacitor shell
-- [ ] 7. Cross-component review
-- [ ] 8. Edge cases verified
-- [ ] 9. README.md written
+- [ ] 6. Plugin host (extension points)
+- [ ] 7. UI + Capacitor shell
+- [ ] 8. Cross-component review
+- [ ] 9. Edge cases verified
+- [ ] 10. README.md written
 ```
 
 1.  Execute TDD loop for `src/providers/` per `user-stories/typescript_mail_provider.md`
@@ -155,17 +173,18 @@ Build Progress:
 3.  Execute TDD loop for `src/providers/gmail/GmailProvider.ts` per `user-stories/typescript_gmail_proxy.md`
 4.  Execute TDD loop for `src/intelligence/` per `user-stories/typescript_mail_intelligence.md`
 5.  Execute TDD loop for `src/store/` per `user-stories/typescript_mail_store.md`
-6.  Execute TDD loop for the UI and Capacitor shell per `user-stories/typescript_email_ui.md`
-7.  Review all six components and confirm they meet the requirements in their
+6.  Execute TDD loop for `src/plugins/` per `user-stories/typescript_plugin_system.md`
+7.  Execute TDD loop for the UI and Capacitor shell per `user-stories/typescript_email_ui.md`
+8.  Review all seven components and confirm they meet the requirements in their
     respective .md files, including that the wire schema in
     `user-stories/python_gmail_bridge.md` and the mapping in
     `user-stories/typescript_gmail_proxy.md` agree field-for-field, and that every
-    AI-driven and store-driven UI flow works against the fakes alone.
-8.  Verify any remaining edge cases (e.g., empty mailbox, message with no
+    AI-, store-, and plug-in-driven UI flow works against the fakes alone.
+9.  Verify any remaining edge cases (e.g., empty mailbox, message with no
     `Date` header, HTML-only body, expired OAuth token, inference server
     down mid-triage, configured model not pulled/loaded, search query that is
-    all stop words, message with empty body).
-9.  **Create or replace `README.md`** — the operator's guide for running the
+    all stop words, message with empty body, plug-in that throws mid-hook).
+10. **Create or replace `README.md`** — the operator's guide for running the
     client. It must:
     - **State that AI features need a self-hosted inference server** —
       Ollama, vLLM, or LM Studio serving an OpenAI-compatible `/v1` endpoint —

@@ -23,6 +23,14 @@ previously synced threads stay readable offline, and text search runs on your de
 each message carries a Bloom filter of its content words (stop words excluded) that
 makes local search instant without ever being able to miss a real match.
 
+## Contents
+- Project status
+- Running the client
+- Running tests
+- Adding a mail platform
+- Extending with plug-ins
+- Safety
+
 ## Project status
 
 **Spec stage.** This repo currently contains the specifications the code is generated
@@ -36,6 +44,7 @@ from, not the code itself:
 | `user-stories/typescript_gmail_proxy.md` | Spec: `GmailProvider`, the first concrete proxy |
 | `user-stories/typescript_mail_intelligence.md` | Spec: `MailIntelligence` + `LocalIntelligence`, the self-hosted AI core |
 | `user-stories/typescript_mail_store.md` | Spec: `MailStore` + `SqliteMailStore`, offline storage and Bloom-filter search |
+| `user-stories/typescript_plugin_system.md` | Spec: `MailPlugin` + `PluginHost`, typed crash-isolated extension points |
 | `user-stories/typescript_email_ui.md` | Spec: the AI-driven screens and Capacitor shell |
 | `TODO.md` | Long-term feature backlog (derived from FairEmail) |
 | `CLAUDE.md` | Working rules for code generation (strict TDD) |
@@ -109,7 +118,7 @@ the AI affordances are disabled and everything else works.
 
 ```
 .venv/bin/python -m pytest bridge/tests/ -q   # Python bridge
-npx vitest run                                 # TypeScript providers + UI
+npx vitest run                                 # all TypeScript layers (providers, intelligence, store, plugins, UI)
 ```
 
 Tests are fully mocked — nothing touches a real account or the network.
@@ -119,6 +128,14 @@ Tests are fully mocked — nothing touches a real account or the network.
 Implement the `MailProvider` interface and register the provider at the composition
 root. That's the whole job — no UI changes, ever. The UI renders whatever the
 interface returns and hides anything the provider's `capabilities()` doesn't support.
+
+## Extending with plug-ins
+
+Implement the `MailPlugin` interface and register it at the composition root. Plug-ins
+contribute through typed extension points — message-view panels, compose transforms,
+thread actions, settings panels — and are crash-isolated: a plug-in that throws is
+auto-disabled with an error shown in the plug-in settings screen, and core mail flows
+keep working. Enable, disable, and configure plug-ins from settings.
 
 ## Safety
 

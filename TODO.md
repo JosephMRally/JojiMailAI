@@ -21,6 +21,8 @@ Feature list derived from [FairEmail](https://github.com/M66B/FairEmail) (open-s
 
 The client should be highly optimizable via plug-in abilities: core stays minimal, and capabilities are added through well-defined extension points rather than baked in.
 
+> v1 spec: [user-stories/typescript_plugin_system.md](user-stories/typescript_plugin_system.md) (plus `MailProvider`/`MailIntelligence`/`MailStore` interfaces for backend plug-ins). Items below stay unchecked until implemented.
+
 - [ ] Plug-in architecture — a stable, versioned extension API with plug-ins discovered/registered at startup and loadable without modifying core code
 - [ ] Mail-platform plug-ins — new email platforms ship as `MailProvider` proxy implementations registered into the `ProviderRegistry` (Gmail first; IMAP, Outlook, etc. as plug-ins)
 - [ ] Message-view plug-ins — hooks into the read pipeline (e.g. translation, summarization/AI, tracking-pixel stripping, iCalendar rendering) as installable units
