@@ -49,11 +49,11 @@ level deep from here:
 
 | Component | Spec | Read when |
 |---|---|---|
-| `MailProvider` interface, model, registry | [user-stories/generate_typescript_mail_provider.md](user-stories/generate_typescript_mail_provider.md) | Touching the shared contract or model types |
-| Gmail bridge (`bridge/app.py`) | [user-stories/generate_python_gmail_bridge.md](user-stories/generate_python_gmail_bridge.md) | Touching the Python facade or wire schema |
-| `GmailProvider` proxy | [user-stories/generate_typescript_gmail_proxy.md](user-stories/generate_typescript_gmail_proxy.md) | Touching the app-side Gmail integration |
-| `MailIntelligence` + `LocalIntelligence` | [user-stories/generate_typescript_mail_intelligence.md](user-stories/generate_typescript_mail_intelligence.md) | Touching the self-hosted AI layer |
-| UI + Capacitor shell | [user-stories/generate_typescript_email_ui.md](user-stories/generate_typescript_email_ui.md) | Touching screens or the shell |
+| `MailProvider` interface, model, registry | [user-stories/typescript_mail_provider.md](user-stories/typescript_mail_provider.md) | Touching the shared contract or model types |
+| Gmail bridge (`bridge/app.py`) | [user-stories/python_gmail_bridge.md](user-stories/python_gmail_bridge.md) | Touching the Python facade or wire schema |
+| `GmailProvider` proxy | [user-stories/typescript_gmail_proxy.md](user-stories/typescript_gmail_proxy.md) | Touching the app-side Gmail integration |
+| `MailIntelligence` + `LocalIntelligence` | [user-stories/typescript_mail_intelligence.md](user-stories/typescript_mail_intelligence.md) | Touching the self-hosted AI layer |
+| UI + Capacitor shell | [user-stories/typescript_email_ui.md](user-stories/typescript_email_ui.md) | Touching screens or the shell |
 
 ## Architecture
 ```
@@ -146,15 +146,15 @@ Build Progress:
 - [ ] 8. README.md written
 ```
 
-1.  Execute TDD loop for `src/providers/` per `user-stories/generate_typescript_mail_provider.md`
-2.  Execute TDD loop for `bridge/app.py` per `user-stories/generate_python_gmail_bridge.md`
-3.  Execute TDD loop for `src/providers/gmail/GmailProvider.ts` per `user-stories/generate_typescript_gmail_proxy.md`
-4.  Execute TDD loop for `src/intelligence/` per `user-stories/generate_typescript_mail_intelligence.md`
-5.  Execute TDD loop for the UI and Capacitor shell per `user-stories/generate_typescript_email_ui.md`
+1.  Execute TDD loop for `src/providers/` per `user-stories/typescript_mail_provider.md`
+2.  Execute TDD loop for `bridge/app.py` per `user-stories/python_gmail_bridge.md`
+3.  Execute TDD loop for `src/providers/gmail/GmailProvider.ts` per `user-stories/typescript_gmail_proxy.md`
+4.  Execute TDD loop for `src/intelligence/` per `user-stories/typescript_mail_intelligence.md`
+5.  Execute TDD loop for the UI and Capacitor shell per `user-stories/typescript_email_ui.md`
 6.  Review all five components and confirm they meet the requirements in their
     respective .md files, including that the wire schema in
-    `user-stories/generate_python_gmail_bridge.md` and the mapping in
-    `user-stories/generate_typescript_gmail_proxy.md` agree field-for-field, and that every
+    `user-stories/python_gmail_bridge.md` and the mapping in
+    `user-stories/typescript_gmail_proxy.md` agree field-for-field, and that every
     AI-driven UI flow works against `FakeIntelligence` alone.
 7.  Verify any remaining edge cases (e.g., empty mailbox, message with no
     `Date` header, HTML-only body, expired OAuth token, inference server

@@ -1,12 +1,12 @@
 # JojiMailAI
 
-A cross-platform, AI-native email client (Capacitor + React/Vite/TypeScript web UI) generated from spec files: `SKILL.md` defines the overall process and architecture, and each `user-stories/generate_*.md` is the spec for one component. User stories in the specs are the source of truth for tests and code. `TODO.md` is the longer-term feature backlog (derived from FairEmail), not a spec.
+A cross-platform, AI-native email client (Capacitor + React/Vite/TypeScript web UI) generated from spec files: `SKILL.md` defines the overall process and architecture, and each `user-stories/*.md` is the spec for one component. User stories in the specs are the source of truth for tests and code. `TODO.md` is the longer-term feature backlog (derived from FairEmail), not a spec.
 
 ## Authoring best practices (all .md files)
 
 Every markdown file in this repo follows Anthropic's [skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices), two of them deliberately:
 
-- **Progressive disclosure**: `SKILL.md` stays a lean overview that points to detail files; load a `user-stories/generate_*.md` spec only when working on that component. Keep every reference one level deep from `SKILL.md`, give any file over 100 lines a Contents section at the top, and keep bodies concise — never restate what Claude already knows.
+- **Progressive disclosure**: `SKILL.md` stays a lean overview that points to detail files; load a `user-stories/*.md` spec only when working on that component. Keep every reference one level deep from `SKILL.md`, give any file over 100 lines a Contents section at the top, and keep bodies concise — never restate what Claude already knows.
 - **Workflows and feedback loops**: every multi-step process is written as a copyable checklist, and every step that can be validated has a validator and a loop — run pytest/vitest, fix, re-run, and **only proceed when it passes**.
 
 Apply both patterns when editing or adding any .md file here.
@@ -17,7 +17,7 @@ All mail access goes through the **Proxy pattern**: the UI talks only to the `Ma
 
 ## TDD is mandatory
 
-When executing or re-executing any `user-stories/generate_*.md` spec — including small schema changes to already-working code — copy this checklist into your response and check items off as you go:
+When executing or re-executing any `user-stories/*.md` spec — including small schema changes to already-working code — copy this checklist into your response and check items off as you go:
 
 ```
 TDD Progress (<component>):
@@ -47,4 +47,4 @@ Use `.venv/bin/python` — pytest is installed in the project venv, not globally
 
 - Do not run the app or the bridge against the live mailbox unless explicitly asked — "do not execute" in the specs refers to live runs; running pytest/vitest is always fine.
 - Bridge tests must mock the `simplegmail` `Gmail` client (the JosephMRally fork); provider tests mock `fetch`; intelligence tests mock the OpenAI-compatible client (no test may require a running Ollama/vLLM/LM Studio server); UI tests use the in-memory `FakeProvider` and `FakeIntelligence`. No real addresses or credentials in fixtures.
-- Keep the wire schema in `user-stories/generate_python_gmail_bridge.md` and the mapping in `user-stories/generate_typescript_gmail_proxy.md` in agreement field-for-field; change them together or not at all.
+- Keep the wire schema in `user-stories/python_gmail_bridge.md` and the mapping in `user-stories/typescript_gmail_proxy.md` in agreement field-for-field; change them together or not at all.

@@ -1,4 +1,4 @@
-# Generate typescript mail intelligence
+# Typescript mail intelligence
 ## Function
 Create `src/intelligence/MailIntelligence.ts`, `src/intelligence/LocalIntelligence.ts`, and `src/intelligence/FakeIntelligence.ts`; do not execute! AI is fundamental to how JojiMailAI runs: every thread that enters the app is classified and tagged by this layer, long threads are summarized by it, replies are drafted by it, and search queries are interpreted by it. It mirrors the mail-provider design exactly — `MailIntelligence` is the interface the UI depends on, `LocalIntelligence` is the concrete implementation backed by a **self-hosted, OpenAI-compatible inference server** (Ollama, vLLM, or LM Studio — one implementation covers all three because they all speak the OpenAI `/v1/chat/completions` protocol), and `FakeIntelligence` is the deterministic in-memory implementation all tests run against. The UI never imports a concrete intelligence class, so a different AI backend can be swapped in without UI changes — the same substitution rule the proxy pattern gives mail platforms. No mail content ever leaves the user's own machines: inference is self-hosted, full stop.
 

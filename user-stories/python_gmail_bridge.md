@@ -1,6 +1,6 @@
-# Generate python gmail bridge
+# Python gmail bridge
 ## Function
-Create a Python service called `bridge/app.py`; do not execute! The service should be a Facade over the `simplegmail` library that hides the Gmail API behind a small localhost HTTP API. It is the **server-side half of the Gmail proxy**: `simplegmail` is Python and cannot run inside the Capacitor webview, so the app-side `GmailProvider` (see `generate_typescript_gmail_proxy.md`) delegates to this bridge over HTTP. The bridge owns all Gmail I/O — OAuth, paging, label changes, send — so the web app never touches Google directly and never holds Gmail credentials.
+Create a Python service called `bridge/app.py`; do not execute! The service should be a Facade over the `simplegmail` library that hides the Gmail API behind a small localhost HTTP API. It is the **server-side half of the Gmail proxy**: `simplegmail` is Python and cannot run inside the Capacitor webview, so the app-side `GmailProvider` (see `typescript_gmail_proxy.md`) delegates to this bridge over HTTP. The bridge owns all Gmail I/O — OAuth, paging, label changes, send — so the web app never touches Google directly and never holds Gmail credentials.
 
 ## User Stories
 Following agile conventions, we want our user stories to be in the following format: `As a <actor> I want <requirement> so that <description>` will be written in shorthand as `actor | requirement | description`. User stories form the basis of tests and code.
@@ -38,7 +38,7 @@ The bridge reads the mailbox through the `simplegmail` library, which wraps the 
 When running locally, pass `--verbose` to watch requests being processed (logging is off by default).
 
 ## Output Schema
-Wire JSON (snake_case; the app-side proxy maps these to the shared model in `generate_typescript_mail_provider.md`):
+Wire JSON (snake_case; the app-side proxy maps these to the shared model in `typescript_mail_provider.md`):
 name, type, format (optional)
 `tag`, object, `{tag_id: str, name: str, unread_count?: int}`
 `thread_summary`, object, `{thread_id: str, subject: str, snippet: str, from: str, date: int (epoch ms), unread: bool, message_count: int, tag_ids: [str]}`

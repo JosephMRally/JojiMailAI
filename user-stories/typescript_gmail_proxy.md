@@ -1,6 +1,6 @@
-# Generate typescript gmail proxy
+# Typescript gmail proxy
 ## Function
-Create `src/providers/gmail/GmailProvider.ts`; do not execute! This class is the **first concrete Proxy** behind the `MailProvider` interface: a local surrogate for the remote Gmail server that fulfills every interface method by delegating over HTTP to the Python bridge (`generate_python_gmail_bridge.md`), which wraps `simplegmail`. The UI never sees this class — it resolves it from the `ProviderRegistry` as a plain `MailProvider`. All Gmail-specific knowledge in the app (bridge URL, wire schema, error mapping) lives in this one directory.
+Create `src/providers/gmail/GmailProvider.ts`; do not execute! This class is the **first concrete Proxy** behind the `MailProvider` interface: a local surrogate for the remote Gmail server that fulfills every interface method by delegating over HTTP to the Python bridge (`python_gmail_bridge.md`), which wraps `simplegmail`. The UI never sees this class — it resolves it from the `ProviderRegistry` as a plain `MailProvider`. All Gmail-specific knowledge in the app (bridge URL, wire schema, error mapping) lives in this one directory.
 
 ## User Stories
 Following agile conventions, we want our user stories to be in the following format: `As a <actor> I want <requirement> so that <description>` will be written in shorthand as `actor | requirement | description`. User stories form the basis of tests and code.
@@ -8,7 +8,7 @@ Following agile conventions, we want our user stories to be in the following for
 actor | requirement | description
 engineer | `GmailProvider` to implement the `MailProvider` interface exactly, with a test asserting assignability | it registers into the `ProviderRegistry` as a drop-in and the UI cannot tell it from any other platform
 engineer | tests to mock `fetch` (injected, never global) and never open a socket | all tests are deterministic and reproducible
-engineer | test fixtures modeled on the bridge's wire JSON from `generate_python_gmail_bridge.md`, using fake addresses | tests are realistic yet deterministic and touch no real account or bridge
+engineer | test fixtures modeled on the bridge's wire JSON from `python_gmail_bridge.md`, using fake addresses | tests are realistic yet deterministic and touch no real account or bridge
 engineer | the constructor to take `{baseUrl?: string, fetchFn?: typeof fetch}` with `baseUrl` defaulting to `http://127.0.0.1:8765` | tests inject a mock, and devices that can't see the host's localhost (e.g. Android emulator's `10.0.2.2`) can point elsewhere
 engineer | construction to perform no I/O; the first HTTP request happens on the first interface method call (Proxy pattern: lazy initialization) | registering a Gmail account at startup costs nothing until the user opens it
 engineer | each interface method mapped to exactly one bridge endpoint: `listTags→GET /tags`, `listThreads→GET /threads?tag=`, `getThread→GET /threads/{id}`, `getMessage→GET /messages/{id}`, `send→POST /messages/send`, `markRead/markUnread/addTag/removeTag/archive/trash→POST /messages/{id}/modify` | the proxy stays a thin delegate with no business logic to drift
@@ -27,7 +27,7 @@ engineer | vitest as the test runner, sharing the fixture builders with the prov
 Runtime input is the bridge's HTTP API on `baseUrl` (default `http://127.0.0.1:8765`) — the proxy never talks to Google, reads credential files, or performs OAuth; all of that lives in the bridge. If the bridge is not running, every method rejects with `MailProviderError('NETWORK')`.
 
 ## Output Schema
-The proxy's outputs are exactly the shared model types defined in `generate_typescript_mail_provider.md` (`Tag`, `ThreadSummary`, `Message`, and `MailProviderError`); it defines no types of its own beyond internal wire-shape typings for the bridge JSON.
+The proxy's outputs are exactly the shared model types defined in `typescript_mail_provider.md` (`Tag`, `ThreadSummary`, `Message`, and `MailProviderError`); it defines no types of its own beyond internal wire-shape typings for the bridge JSON.
 
 # Finally
 Follow strict TDD (see `SKILL.md`): tests come first, and the suite is the feedback-loop validator — run, fix, re-run, and only proceed when green. Every user story above must map to at least one test that was observed failing before implementation. Copy this checklist and check items off as you go:

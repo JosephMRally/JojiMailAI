@@ -1,4 +1,4 @@
-# Generate typescript mail provider interface
+# Typescript mail provider interface
 ## Function
 Create `src/providers/MailProvider.ts`, `src/providers/model.ts`, and `src/providers/ProviderRegistry.ts`; do not execute! These files define the **subject interface of the Proxy design pattern**: `MailProvider` is the platform-agnostic contract every mail platform must satisfy, the model types are the shared vocabulary all providers speak, and `ProviderRegistry` maps accounts to whichever concrete proxy serves them. This layer is the **only** mail API surface the UI is allowed to import — no concrete provider, no `fetch`, no platform SDK ever leaks past it. It contains zero I/O of its own, so it is pure TypeScript testable with an in-memory fake.
 
