@@ -15,10 +15,10 @@ description: >
   add another mail provider, or to connect the app to Gmail.
 ---
 
-# Capacitor Email Client (MailProvider proxies → Gmail via simplegmail bridge → web UI)
+# Capacitor Email Client (MailProvider proxies → Gmail bridge · self-hosted AI · SQLite + Bloom store · web UI)
 Humans shouldn't program - they make too many mistakes
 
-This skill was designed as a POC to run in Claude's code. Only generate code; never run
+This skill was designed as a POC to run in Claude Code. Only generate code; never run
 the pipeline against a live mailbox — "do not execute" means live runs, and
 running pytest/vitest is always fine. Follow Skill Driven Development (SDD:
 the user-story specs under `user-stories/` are the single source of truth —
