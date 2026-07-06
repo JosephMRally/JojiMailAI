@@ -12,11 +12,13 @@ description: >
   Because `simplegmail` is Python and cannot run inside the webview, Gmail is
   reached via a small localhost Python bridge service that wraps `simplegmail`;
   the app-side `GmailProvider` proxy calls that bridge. **AI is fundamental to
-  how the client runs**: a `MailIntelligence` interface — implemented by
-  `ClaudeIntelligence` on the Anthropic API (official TypeScript SDK, model
-  `claude-opus-4-8`, structured outputs) — auto-tags arriving mail into the
+  how the client runs and is entirely self-hosted**: a `MailIntelligence`
+  interface — implemented by `LocalIntelligence` over the OpenAI-compatible
+  `/v1` endpoint that Ollama, vLLM, and LM Studio all expose (official `openai`
+  TypeScript SDK, constrained JSON output) — auto-tags arriving mail into the
   tag model, digests long threads, drafts replies, and interprets
-  natural-language search. Triggers on "build an email client", "multi-account
+  natural-language search, with no mail content ever sent to a cloud AI
+  service. Triggers on "build an email client", "multi-account
   mail app", "Capacitor mail app", "AI email client", "add another mail
   provider", or "connect the app to Gmail" — even without the word "proxy".
 
@@ -43,13 +45,13 @@ convention for TypeScript tests.
 │     │                                  ▲            ▲                                     │
 │     │                           GmailProvider   (future: ImapProvider, OutlookProvider)   │
 │     │                            (remote proxy)     │                                     │
-│     └──▶ MailIntelligence (interface) ◀── ClaudeIntelligence (@anthropic-ai/sdk)          │
+│     └──▶ MailIntelligence (interface) ◀── LocalIntelligence (`openai` SDK)                │
 │                    ▲                                │            │                        │
 │             FakeIntelligence (tests)                │            │                        │
 └─────────────────────────────────────────────────────┼────────────┼────────────────────────┘
-                                    HTTP, 127.0.0.1 only        Anthropic API
-                                bridge/app.py  (Python facade      (claude-opus-4-8)
-                                 over `simplegmail`)
+                                    HTTP, 127.0.0.1 only     self-hosted LLM server
+                                bridge/app.py  (Python facade   (Ollama | vLLM | LM Studio,
+                                 over `simplegmail`)             OpenAI-compatible /v1)
                                        │
                                     Gmail API
 ```
@@ -60,13 +62,15 @@ one normalized error type, and hides platform pagination behind opaque tokens.
 Organization is **tag-based throughout — no folders/directories**: messages
 carry any number of tags (Gmail labels map 1:1), "moving" mail means changing
 tags, and a folder-only platform's proxy presents each folder as a tag.
-**AI runs through the same pattern**: the UI depends only on the
-`MailIntelligence` interface; `ClaudeIntelligence` (Anthropic API, model
-`claude-opus-4-8`, structured outputs, adaptive thinking) is resolved at the
-composition root, and `FakeIntelligence` stands in for all tests. AI drives
-the core loops — arriving mail is classified into the user's real tags,
-long threads open with a digest, compose starts from a draft, search is
-natural language — but AI failure degrades those affordances without ever
+**AI runs through the same pattern and is entirely self-hosted**: the UI
+depends only on the `MailIntelligence` interface; `LocalIntelligence`
+(the official `openai` SDK pointed at the OpenAI-compatible `/v1` endpoint
+of a user-hosted Ollama, vLLM, or LM Studio server, with constrained JSON
+output) is resolved at the composition root, and `FakeIntelligence` stands
+in for all tests. AI drives the core loops — arriving mail is classified
+into the user's real tags, long threads open with a digest, compose starts
+from a draft, search is natural language — mail content never leaves the
+user's machines, and AI failure degrades those affordances without ever
 blocking plain mail reading and sending.
 
 # Steps:
@@ -89,12 +93,12 @@ Never edit implementation and tests in the same step.
 - **Isolation**: One component at a time. Do not combine multiple components
   into one response.
 - **Mocking**: You must mock the `simplegmail` `Gmail` client in bridge tests,
-  mock `fetch` in provider tests, and mock the Anthropic SDK client in
-  intelligence tests; do not attempt to connect to a live server or the live
-  Anthropic API, and never put a real API key in a test or fixture. UI tests
-  use the in-memory `FakeProvider` and `FakeIntelligence`.
+  mock `fetch` in provider tests, and mock the OpenAI-compatible client in
+  intelligence tests; no test may require a live server or a running
+  inference server (Ollama/vLLM/LM Studio). UI tests use the in-memory
+  `FakeProvider` and `FakeIntelligence`.
 - **Proxy discipline**: No file under `src/ui/` may import from
-  `src/providers/gmail/`, `src/intelligence/ClaudeIntelligence.ts`, or any
+  `src/providers/gmail/`, `src/intelligence/LocalIntelligence.ts`, or any
   other concrete provider/intelligence module. Enforce with a test or lint
   rule.
 - **Validation**: Every response that includes code must also include the
@@ -112,13 +116,15 @@ Never edit implementation and tests in the same step.
     `user-stories/generate_typescript_gmail_proxy.md` agree field-for-field, and that every
     AI-driven UI flow works against `FakeIntelligence` alone.
 7.  Verify any remaining edge cases (e.g., empty mailbox, message with no
-    `Date` header, HTML-only body, expired OAuth token, AI rate limit
-    mid-triage, missing Anthropic key).
+    `Date` header, HTML-only body, expired OAuth token, inference server
+    down mid-triage, configured model not pulled/loaded).
 8.  **Create or replace `README.md`** — the operator's guide for running the
     client. It must:
-    - **State that AI features need an Anthropic API key** in
-      `VITE_ANTHROPIC_API_KEY`, and that without one the client still reads,
-      tags, and sends mail — only the AI affordances are disabled.
+    - **State that AI features need a self-hosted inference server** —
+      Ollama, vLLM, or LM Studio serving an OpenAI-compatible `/v1` endpoint —
+      configured via `VITE_AI_BASE_URL` and `VITE_AI_MODEL`, and that without
+      one the client still reads, tags, and sends mail — only the AI
+      affordances are disabled. Mail content never leaves the user's machines.
     - **Show how to start the two halves in order**: `bridge/app.py` first,
       then the web app (`npm run dev` for browser, `npx cap run ios|android`
       for device), with each command's inputs and outputs.

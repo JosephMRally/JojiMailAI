@@ -8,12 +8,15 @@ Mail platforms are pluggable: the UI talks only to a `MailProvider` interface, a
 platform is a proxy registered behind it. Gmail is the first. Organization is
 **tag-based** — messages carry any number of tags; there are no folders.
 
-**AI is built into how the client runs**, behind a `MailIntelligence` interface of its
-own (Claude, via the official Anthropic SDK): arriving mail is auto-tagged into your
-real tags, long threads open with a summary and action items, replies start from an
-AI draft you edit, and the search box takes plain language ("invoices from ACME last
-month"). Nothing is ever sent without your explicit action, and if AI is unavailable
-the client still reads, tags, and sends mail normally.
+**AI is built into how the client runs — and it's entirely self-hosted**, behind a
+`MailIntelligence` interface of its own. Point it at any OpenAI-compatible inference
+server you run yourself — [Ollama](https://ollama.com/), [vLLM](https://docs.vllm.ai/),
+or [LM Studio](https://lmstudio.ai/) — and arriving mail is auto-tagged into your real
+tags, long threads open with a summary and action items, replies start from an AI
+draft you edit, and the search box takes plain language ("invoices from ACME last
+month"). Your mail content never leaves your machines, nothing is ever sent without
+your explicit action, and if the AI server is down the client still reads, tags, and
+sends mail normally.
 
 ## Project status
 
@@ -26,7 +29,7 @@ from, not the code itself:
 | `user-stories/generate_typescript_mail_provider.md` | Spec: `MailProvider` interface, shared model, `ProviderRegistry` |
 | `user-stories/generate_python_gmail_bridge.md` | Spec: the local Gmail bridge service |
 | `user-stories/generate_typescript_gmail_proxy.md` | Spec: `GmailProvider`, the first concrete proxy |
-| `user-stories/generate_typescript_mail_intelligence.md` | Spec: `MailIntelligence` + `ClaudeIntelligence`, the AI core |
+| `user-stories/generate_typescript_mail_intelligence.md` | Spec: `MailIntelligence` + `LocalIntelligence`, the self-hosted AI core |
 | `user-stories/generate_typescript_email_ui.md` | Spec: the AI-driven screens and Capacitor shell |
 | `TODO.md` | Long-term feature backlog (derived from FairEmail) |
 | `CLAUDE.md` | Working rules for code generation (strict TDD) |
@@ -71,9 +74,12 @@ If the device can't reach the host's localhost (e.g. the Android emulator), poin
 app at the bridge with `VITE_BRIDGE_URL` (the Android emulator reaches the host at
 `http://10.0.2.2:8765`).
 
-**AI features need an Anthropic API key** in `VITE_ANTHROPIC_API_KEY`. The key stays on
-your device and mail content is sent to the Anthropic API only when an AI feature runs.
-Without a key, the AI affordances are disabled and everything else works.
+**AI features need a self-hosted inference server** — Ollama, vLLM, or LM Studio, all of
+which serve an OpenAI-compatible `/v1` endpoint. Configure it with `VITE_AI_BASE_URL`
+(default `http://127.0.0.1:11434/v1`, Ollama's default; LM Studio uses `:1234/v1`, vLLM
+`:8000/v1`) and `VITE_AI_MODEL` (the model you've pulled/loaded, e.g. `llama3.1`). Mail
+content goes only to that server — never to a cloud AI service. Without a running server,
+the AI affordances are disabled and everything else works.
 
 ## Running tests
 
