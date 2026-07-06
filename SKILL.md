@@ -11,9 +11,14 @@ description: >
   library (the JosephMRally fork, https://github.com/JosephMRally/simplegmail).
   Because `simplegmail` is Python and cannot run inside the webview, Gmail is
   reached via a small localhost Python bridge service that wraps `simplegmail`;
-  the app-side `GmailProvider` proxy calls that bridge. Triggers on "build an
-  email client", "multi-account mail app", "Capacitor mail app", "add another
-  mail provider", or "connect the app to Gmail" — even without the word "proxy".
+  the app-side `GmailProvider` proxy calls that bridge. **AI is fundamental to
+  how the client runs**: a `MailIntelligence` interface — implemented by
+  `ClaudeIntelligence` on the Anthropic API (official TypeScript SDK, model
+  `claude-opus-4-8`, structured outputs) — auto-tags arriving mail into the
+  tag model, digests long threads, drafts replies, and interprets
+  natural-language search. Triggers on "build an email client", "multi-account
+  mail app", "Capacitor mail app", "AI email client", "add another mail
+  provider", or "connect the app to Gmail" — even without the word "proxy".
 
   Only generate code; never run the app or the bridge against a live mailbox.
   Running pytest and vitest is always fine.
@@ -35,12 +40,16 @@ convention for TypeScript tests.
 ```
 ┌────────────────────────── Capacitor shell (iOS / Android / web) ──────────────────────────┐
 │  React UI ──▶ ProviderRegistry ──▶ MailProvider (interface)                               │
-│                                        ▲            ▲                                     │
-│                                 GmailProvider   (future: ImapProvider, OutlookProvider)   │
-│                                  (remote proxy)                                           │
-└──────────────────────────────────────┼────────────────────────────────────────────────────┘
-                                       │ HTTP, 127.0.0.1 only
-                                bridge/app.py  (Python facade over `simplegmail`)
+│     │                                  ▲            ▲                                     │
+│     │                           GmailProvider   (future: ImapProvider, OutlookProvider)   │
+│     │                            (remote proxy)     │                                     │
+│     └──▶ MailIntelligence (interface) ◀── ClaudeIntelligence (@anthropic-ai/sdk)          │
+│                    ▲                                │            │                        │
+│             FakeIntelligence (tests)                │            │                        │
+└─────────────────────────────────────────────────────┼────────────┼────────────────────────┘
+                                    HTTP, 127.0.0.1 only        Anthropic API
+                                bridge/app.py  (Python facade      (claude-opus-4-8)
+                                 over `simplegmail`)
                                        │
                                     Gmail API
 ```
@@ -51,6 +60,14 @@ one normalized error type, and hides platform pagination behind opaque tokens.
 Organization is **tag-based throughout — no folders/directories**: messages
 carry any number of tags (Gmail labels map 1:1), "moving" mail means changing
 tags, and a folder-only platform's proxy presents each folder as a tag.
+**AI runs through the same pattern**: the UI depends only on the
+`MailIntelligence` interface; `ClaudeIntelligence` (Anthropic API, model
+`claude-opus-4-8`, structured outputs, adaptive thinking) is resolved at the
+composition root, and `FakeIntelligence` stands in for all tests. AI drives
+the core loops — arriving mail is classified into the user's real tags,
+long threads open with a digest, compose starts from a draft, search is
+natural language — but AI failure degrades those affordances without ever
+blocking plain mail reading and sending.
 
 # Steps:
 The development of each component must follow a strict Test Driven Development
@@ -71,12 +88,15 @@ Never edit implementation and tests in the same step.
 **Specific Constraints:**
 - **Isolation**: One component at a time. Do not combine multiple components
   into one response.
-- **Mocking**: You must mock the `simplegmail` `Gmail` client in bridge tests
-  and mock `fetch` in provider tests; do not attempt to connect to a live
-  server. UI tests use an in-memory `FakeProvider`.
+- **Mocking**: You must mock the `simplegmail` `Gmail` client in bridge tests,
+  mock `fetch` in provider tests, and mock the Anthropic SDK client in
+  intelligence tests; do not attempt to connect to a live server or the live
+  Anthropic API, and never put a real API key in a test or fixture. UI tests
+  use the in-memory `FakeProvider` and `FakeIntelligence`.
 - **Proxy discipline**: No file under `src/ui/` may import from
-  `src/providers/gmail/` (or any other concrete provider directory). Enforce
-  with a test or lint rule.
+  `src/providers/gmail/`, `src/intelligence/ClaudeIntelligence.ts`, or any
+  other concrete provider/intelligence module. Enforce with a test or lint
+  rule.
 - **Validation**: Every response that includes code must also include the
   output of a successful test run (or at least the command used to verify it).
 
@@ -84,15 +104,21 @@ Never edit implementation and tests in the same step.
 1.  Execute TDD loop for `src/providers/` per `generate_typescript_mail_provider.md`
 2.  Execute TDD loop for `bridge/app.py` per `generate_python_gmail_bridge.md`
 3.  Execute TDD loop for `src/providers/gmail/GmailProvider.ts` per `generate_typescript_gmail_proxy.md`
-4.  Execute TDD loop for the UI and Capacitor shell per `generate_typescript_email_ui.md`
-5.  Review all four components and confirm they meet the requirements in their
+4.  Execute TDD loop for `src/intelligence/` per `generate_typescript_mail_intelligence.md`
+5.  Execute TDD loop for the UI and Capacitor shell per `generate_typescript_email_ui.md`
+6.  Review all five components and confirm they meet the requirements in their
     respective .md files, including that the wire schema in
     `generate_python_gmail_bridge.md` and the mapping in
-    `generate_typescript_gmail_proxy.md` agree field-for-field.
-6.  Verify any remaining edge cases (e.g., empty mailbox, message with no
-    `Date` header, HTML-only body, expired OAuth token).
-7.  **Create or replace `README.md`** — the operator's guide for running the
+    `generate_typescript_gmail_proxy.md` agree field-for-field, and that every
+    AI-driven UI flow works against `FakeIntelligence` alone.
+7.  Verify any remaining edge cases (e.g., empty mailbox, message with no
+    `Date` header, HTML-only body, expired OAuth token, AI rate limit
+    mid-triage, missing Anthropic key).
+8.  **Create or replace `README.md`** — the operator's guide for running the
     client. It must:
+    - **State that AI features need an Anthropic API key** in
+      `VITE_ANTHROPIC_API_KEY`, and that without one the client still reads,
+      tags, and sends mail — only the AI affordances are disabled.
     - **Show how to start the two halves in order**: `bridge/app.py` first,
       then the web app (`npm run dev` for browser, `npx cap run ios|android`
       for device), with each command's inputs and outputs.

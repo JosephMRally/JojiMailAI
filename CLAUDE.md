@@ -1,10 +1,10 @@
 # JojiMailAI
 
-A cross-platform email client (Capacitor + React/Vite/TypeScript web UI) generated from spec files: `SKILL.md` defines the overall process and architecture, and each `generate_*.md` is the spec for one component. User stories in the specs are the source of truth for tests and code. `TODO.md` is the longer-term feature backlog (derived from FairEmail), not a spec.
+A cross-platform, AI-native email client (Capacitor + React/Vite/TypeScript web UI) generated from spec files: `SKILL.md` defines the overall process and architecture, and each `generate_*.md` is the spec for one component. User stories in the specs are the source of truth for tests and code. `TODO.md` is the longer-term feature backlog (derived from FairEmail), not a spec.
 
 ## Architecture in one paragraph
 
-All mail access goes through the **Proxy pattern**: the UI talks only to the `MailProvider` interface and resolves concrete providers from the `ProviderRegistry` — no UI file may import a concrete provider directory. Gmail is the first platform: a TypeScript `GmailProvider` proxy delegates over localhost HTTP to `bridge/app.py`, a Python FastAPI facade over `simplegmail`, because `simplegmail` cannot run in the webview. Organization is tag-based throughout — no folders/directories; Gmail labels map 1:1 to tags.
+All mail access goes through the **Proxy pattern**: the UI talks only to the `MailProvider` interface and resolves concrete providers from the `ProviderRegistry` — no UI file may import a concrete provider directory. Gmail is the first platform: a TypeScript `GmailProvider` proxy delegates over localhost HTTP to `bridge/app.py`, a Python FastAPI facade over `simplegmail`, because `simplegmail` cannot run in the webview. Organization is tag-based throughout — no folders/directories; Gmail labels map 1:1 to tags. **AI is fundamental and runs through the same pattern**: the UI depends only on the `MailIntelligence` interface; `ClaudeIntelligence` (official `@anthropic-ai/sdk`, model `claude-opus-4-8`, structured outputs via `messages.parse`) auto-tags arriving mail, digests long threads, drafts replies, and parses natural-language search — while AI failure degrades those affordances without blocking core mail flows.
 
 ## TDD is mandatory
 
@@ -29,5 +29,5 @@ Use `.venv/bin/python` — pytest is installed in the project venv, not globally
 ## Other rules
 
 - Do not run the app or the bridge against the live mailbox unless explicitly asked — "do not execute" in the specs refers to live runs; running pytest/vitest is always fine.
-- Bridge tests must mock the `simplegmail` `Gmail` client (the JosephMRally fork); provider tests mock `fetch`; UI tests use the in-memory `FakeProvider`. No real addresses or credentials in fixtures.
+- Bridge tests must mock the `simplegmail` `Gmail` client (the JosephMRally fork); provider tests mock `fetch`; intelligence tests mock the Anthropic SDK client (never call the live API); UI tests use the in-memory `FakeProvider` and `FakeIntelligence`. No real addresses, API keys, or credentials in fixtures.
 - Keep the wire schema in `generate_python_gmail_bridge.md` and the mapping in `generate_typescript_gmail_proxy.md` in agreement field-for-field; change them together or not at all.
