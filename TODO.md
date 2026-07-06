@@ -2,6 +2,21 @@
 
 Feature list derived from [FairEmail](https://github.com/M66B/FairEmail) (open-source, privacy-oriented Android email client by M66B), based on its README, Play Store description, and FAQ. Features marked **(pro)** are paid "pro" convenience/advanced features in FairEmail; everything else is free there.
 
+## Contents
+- Extensibility & Plug-ins
+- Accounts & Protocols
+- Message List / Inbox
+- Reading Messages
+- Composing
+- Search
+- Privacy & Security
+- Encryption
+- Notifications
+- Organization, Rules & Automation
+- Sync & Offline
+- UI / UX
+- Project / Meta
+
 ## Extensibility & Plug-ins
 
 The client should be highly optimizable via plug-in abilities: core stays minimal, and capabilities are added through well-defined extension points rather than baked in.

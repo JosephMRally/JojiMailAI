@@ -39,7 +39,14 @@ test before any implementation is written (red → green → refactor → commit
 
 ## Running the client
 
-The app has two halves, started in this order:
+Startup checklist — verify each step before moving to the next:
+
+```
+Startup:
+- [ ] 1. Bridge started and /health returns ok
+- [ ] 2. AI server running and model loaded (optional but recommended)
+- [ ] 3. App started
+```
 
 ### 1. Start the bridge
 
@@ -50,11 +57,22 @@ The app has two halves, started in this order:
 The bridge talks to Gmail itself; the app talks only to the bridge (localhost, port
 8765 by default — see `--port`, `--token`, `--client-secret`, `--verbose`).
 
+**Verify** before continuing: `curl http://127.0.0.1:8765/health` → `{"status": "ok"}`.
+If it fails, fix the bridge first — nothing downstream works without it.
+
 **The first run needs a browser**: it opens a Google sign-in page to authorize the
 account and saves a reusable token file. It cannot authenticate headless on a cold
 start; every run after that reuses the token silently.
 
-### 2. Start the app
+### 2. Start your AI server (optional)
+
+Start Ollama, vLLM, or LM Studio with your chosen model loaded.
+
+**Verify**: `curl $VITE_AI_BASE_URL/models` (e.g. `http://127.0.0.1:11434/v1/models`)
+lists the model you set in `VITE_AI_MODEL`. If the server is down or the model is
+missing, the app still runs — AI affordances show an actionable error instead.
+
+### 3. Start the app
 
 In a browser during development:
 

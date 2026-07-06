@@ -38,6 +38,23 @@ email addresses; use synthetic fixture data modeled on the shape of real
 (TypeScript side). Follow pytest convention for Python tests and vitest
 convention for TypeScript tests.
 
+This file and every spec follow Anthropic's [skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)
+— progressive disclosure and workflows with feedback loops in particular.
+
+## Component specs (progressive disclosure)
+
+This file is the overview; the detail lives in one spec per component. **Load
+only the spec for the component you are working on** — all references are one
+level deep from here:
+
+| Component | Spec | Read when |
+|---|---|---|
+| `MailProvider` interface, model, registry | [user-stories/generate_typescript_mail_provider.md](user-stories/generate_typescript_mail_provider.md) | Touching the shared contract or model types |
+| Gmail bridge (`bridge/app.py`) | [user-stories/generate_python_gmail_bridge.md](user-stories/generate_python_gmail_bridge.md) | Touching the Python facade or wire schema |
+| `GmailProvider` proxy | [user-stories/generate_typescript_gmail_proxy.md](user-stories/generate_typescript_gmail_proxy.md) | Touching the app-side Gmail integration |
+| `MailIntelligence` + `LocalIntelligence` | [user-stories/generate_typescript_mail_intelligence.md](user-stories/generate_typescript_mail_intelligence.md) | Touching the self-hosted AI layer |
+| UI + Capacitor shell | [user-stories/generate_typescript_email_ui.md](user-stories/generate_typescript_email_ui.md) | Touching screens or the shell |
+
 ## Architecture
 ```
 ┌────────────────────────── Capacitor shell (iOS / Android / web) ──────────────────────────┐
@@ -75,10 +92,20 @@ blocking plain mail reading and sending.
 
 # Steps:
 The development of each component must follow a strict Test Driven Development
-(TDD) loop. Do not proceed to the next step until the current step's tests pass
-successfully.
+(TDD) loop — a feedback loop where the test suite is the validator: run it,
+fix, re-run, and **do not proceed to the next step until it passes**.
 
-For each component, you must perform the following cycle:
+For each component, copy this checklist into your response and check items off
+as you complete them:
+
+```
+TDD Progress (<component>):
+- [ ] Red: tests derived from the spec's user stories, run and observed failing
+- [ ] Green: minimum implementation, full suite passing
+- [ ] Refactor: cleaned up, suite still green
+- [ ] Commit
+```
+
 1. **Red**: Translate the user stories into a test file only (no edits under
    `src/` or `bridge/`), run it (it must fail), and show the failure output.
 2. **Green**: Write/Edit the minimum amount of code required to make those
@@ -104,7 +131,21 @@ Never edit implementation and tests in the same step.
 - **Validation**: Every response that includes code must also include the
   output of a successful test run (or at least the command used to verify it).
 
-**Order of Operations:**
+**Order of Operations** — copy this checklist and check off each component only
+after its TDD loop is fully green and committed (the feedback-loop gate):
+
+```
+Build Progress:
+- [ ] 1. Provider interface + model + registry
+- [ ] 2. Gmail bridge
+- [ ] 3. GmailProvider proxy
+- [ ] 4. Mail intelligence (self-hosted AI)
+- [ ] 5. UI + Capacitor shell
+- [ ] 6. Cross-component review
+- [ ] 7. Edge cases verified
+- [ ] 8. README.md written
+```
+
 1.  Execute TDD loop for `src/providers/` per `user-stories/generate_typescript_mail_provider.md`
 2.  Execute TDD loop for `bridge/app.py` per `user-stories/generate_python_gmail_bridge.md`
 3.  Execute TDD loop for `src/providers/gmail/GmailProvider.ts` per `user-stories/generate_typescript_gmail_proxy.md`

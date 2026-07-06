@@ -30,4 +30,9 @@ Runtime input is the bridge's HTTP API on `baseUrl` (default `http://127.0.0.1:8
 The proxy's outputs are exactly the shared model types defined in `generate_typescript_mail_provider.md` (`Tag`, `ThreadSummary`, `Message`, and `MailProviderError`); it defines no types of its own beyond internal wire-shape typings for the bridge JSON.
 
 # Finally
-Follow strict TDD (see `SKILL.md`): write the tests derived from the user stories first and run them to show they fail (red) **before** changing any implementation; then implement until green and report both runs. Every user story must map to at least one test that was observed failing first. Commit after green.
+Follow strict TDD (see `SKILL.md`): tests come first, and the suite is the feedback-loop validator — run, fix, re-run, and only proceed when green. Every user story above must map to at least one test that was observed failing before implementation. Copy this checklist and check items off as you go:
+
+- [ ] Red: tests for every user story above, run and observed failing
+- [ ] Green: minimum implementation, full suite passing (report both runs)
+- [ ] Refactor: cleaned up, suite still green
+- [ ] Commit

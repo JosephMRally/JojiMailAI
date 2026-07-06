@@ -39,4 +39,9 @@ name, type, format (optional)
 `MailIntelligenceError.code`, union, `AI_UNAVAILABLE | AI_MODEL_NOT_FOUND | AI_BAD_OUTPUT | AI_ERROR`
 
 # Finally
-Follow strict TDD (see `SKILL.md`): write the tests derived from the user stories first and run them to show they fail (red) **before** changing any implementation; then implement until green and report both runs. Every user story must map to at least one test that was observed failing first. Commit after green.
+Follow strict TDD (see `SKILL.md`): tests come first, and the suite is the feedback-loop validator — run, fix, re-run, and only proceed when green. Every user story above must map to at least one test that was observed failing before implementation. Copy this checklist and check items off as you go:
+
+- [ ] Red: tests for every user story above, run and observed failing
+- [ ] Green: minimum implementation, full suite passing (report both runs)
+- [ ] Refactor: cleaned up, suite still green
+- [ ] Commit
