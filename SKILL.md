@@ -53,6 +53,7 @@ level deep from here:
 | Gmail bridge (`bridge/app.py`) | [user-stories/python_gmail_bridge.md](user-stories/python_gmail_bridge.md) | Touching the Python facade or wire schema |
 | `GmailProvider` proxy | [user-stories/typescript_gmail_proxy.md](user-stories/typescript_gmail_proxy.md) | Touching the app-side Gmail integration |
 | `MailIntelligence` + `LocalIntelligence` | [user-stories/typescript_mail_intelligence.md](user-stories/typescript_mail_intelligence.md) | Touching the self-hosted AI layer |
+| `MailStore` + `SqliteMailStore` (SQLite + Bloom search) | [user-stories/typescript_mail_store.md](user-stories/typescript_mail_store.md) | Touching local storage, offline, or text search |
 | UI + Capacitor shell | [user-stories/typescript_email_ui.md](user-stories/typescript_email_ui.md) | Touching screens or the shell |
 
 ## Architecture
@@ -62,9 +63,12 @@ level deep from here:
 │     │                                  ▲            ▲                                     │
 │     │                           GmailProvider   (future: ImapProvider, OutlookProvider)   │
 │     │                            (remote proxy)     │                                     │
-│     └──▶ MailIntelligence (interface) ◀── LocalIntelligence (`openai` SDK)                │
+│     ├──▶ MailIntelligence (interface) ◀── LocalIntelligence (`openai` SDK)                │
+│     │              ▲                                │            │                        │
+│     │       FakeIntelligence (tests)                │            │                        │
+│     └──▶ MailStore (interface) ◀── SqliteMailStore (SQLite + per-message Bloom filters)   │
 │                    ▲                                │            │                        │
-│             FakeIntelligence (tests)                │            │                        │
+│             FakeMailStore (tests)                   │            │                        │
 └─────────────────────────────────────────────────────┼────────────┼────────────────────────┘
                                     HTTP, 127.0.0.1 only     self-hosted LLM server
                                 bridge/app.py  (Python facade   (Ollama | vLLM | LM Studio,
@@ -89,6 +93,11 @@ into the user's real tags, long threads open with a digest, compose starts
 from a draft, search is natural language — mail content never leaves the
 user's machines, and AI failure degrades those affordances without ever
 blocking plain mail reading and sending.
+**Storage is local-first through the same pattern**: synced mail persists in
+`MailStore` (SQLite via `@capacitor-community/sqlite`), each message row
+carrying a Bloom filter of its content words (stop words excluded) that
+prescreens text search — candidates are verified against stored text, so
+results are exact and reading/search work offline.
 
 # Steps:
 The development of each component must follow a strict Test Driven Development
@@ -121,13 +130,14 @@ Never edit implementation and tests in the same step.
   into one response.
 - **Mocking**: You must mock the `simplegmail` `Gmail` client in bridge tests,
   mock `fetch` in provider tests, and mock the OpenAI-compatible client in
-  intelligence tests; no test may require a live server or a running
-  inference server (Ollama/vLLM/LM Studio). UI tests use the in-memory
-  `FakeProvider` and `FakeIntelligence`.
+  intelligence tests; store tests run against an in-memory sql.js database,
+  never the native plugin or filesystem. No test may require a live server or
+  a running inference server (Ollama/vLLM/LM Studio). UI tests use the
+  in-memory `FakeProvider`, `FakeIntelligence`, and `FakeMailStore`.
 - **Proxy discipline**: No file under `src/ui/` may import from
-  `src/providers/gmail/`, `src/intelligence/LocalIntelligence.ts`, or any
-  other concrete provider/intelligence module. Enforce with a test or lint
-  rule.
+  `src/providers/gmail/`, `src/intelligence/LocalIntelligence.ts`,
+  `src/store/SqliteMailStore.ts`, or any other concrete
+  provider/intelligence/store module. Enforce with a test or lint rule.
 - **Validation**: Every response that includes code must also include the
   output of a successful test run (or at least the command used to verify it).
 
@@ -140,26 +150,29 @@ Build Progress:
 - [ ] 2. Gmail bridge
 - [ ] 3. GmailProvider proxy
 - [ ] 4. Mail intelligence (self-hosted AI)
-- [ ] 5. UI + Capacitor shell
-- [ ] 6. Cross-component review
-- [ ] 7. Edge cases verified
-- [ ] 8. README.md written
+- [ ] 5. Mail store (SQLite + Bloom search)
+- [ ] 6. UI + Capacitor shell
+- [ ] 7. Cross-component review
+- [ ] 8. Edge cases verified
+- [ ] 9. README.md written
 ```
 
 1.  Execute TDD loop for `src/providers/` per `user-stories/typescript_mail_provider.md`
 2.  Execute TDD loop for `bridge/app.py` per `user-stories/python_gmail_bridge.md`
 3.  Execute TDD loop for `src/providers/gmail/GmailProvider.ts` per `user-stories/typescript_gmail_proxy.md`
 4.  Execute TDD loop for `src/intelligence/` per `user-stories/typescript_mail_intelligence.md`
-5.  Execute TDD loop for the UI and Capacitor shell per `user-stories/typescript_email_ui.md`
-6.  Review all five components and confirm they meet the requirements in their
+5.  Execute TDD loop for `src/store/` per `user-stories/typescript_mail_store.md`
+6.  Execute TDD loop for the UI and Capacitor shell per `user-stories/typescript_email_ui.md`
+7.  Review all six components and confirm they meet the requirements in their
     respective .md files, including that the wire schema in
     `user-stories/python_gmail_bridge.md` and the mapping in
     `user-stories/typescript_gmail_proxy.md` agree field-for-field, and that every
-    AI-driven UI flow works against `FakeIntelligence` alone.
-7.  Verify any remaining edge cases (e.g., empty mailbox, message with no
+    AI-driven and store-driven UI flow works against the fakes alone.
+8.  Verify any remaining edge cases (e.g., empty mailbox, message with no
     `Date` header, HTML-only body, expired OAuth token, inference server
-    down mid-triage, configured model not pulled/loaded).
-8.  **Create or replace `README.md`** — the operator's guide for running the
+    down mid-triage, configured model not pulled/loaded, search query that is
+    all stop words, message with empty body).
+9.  **Create or replace `README.md`** — the operator's guide for running the
     client. It must:
     - **State that AI features need a self-hosted inference server** —
       Ollama, vLLM, or LM Studio serving an OpenAI-compatible `/v1` endpoint —

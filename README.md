@@ -18,6 +18,11 @@ month"). Your mail content never leaves your machines, nothing is ever sent with
 your explicit action, and if the AI server is down the client still reads, tags, and
 sends mail normally.
 
+**Storage is local-first**: synced mail lives in an on-device SQLite database, so
+previously synced threads stay readable offline, and text search runs on your device —
+each message carries a Bloom filter of its content words (stop words excluded) that
+makes local search instant without ever being able to miss a real match.
+
 ## Project status
 
 **Spec stage.** This repo currently contains the specifications the code is generated
@@ -30,6 +35,7 @@ from, not the code itself:
 | `user-stories/python_gmail_bridge.md` | Spec: the local Gmail bridge service |
 | `user-stories/typescript_gmail_proxy.md` | Spec: `GmailProvider`, the first concrete proxy |
 | `user-stories/typescript_mail_intelligence.md` | Spec: `MailIntelligence` + `LocalIntelligence`, the self-hosted AI core |
+| `user-stories/typescript_mail_store.md` | Spec: `MailStore` + `SqliteMailStore`, offline storage and Bloom-filter search |
 | `user-stories/typescript_email_ui.md` | Spec: the AI-driven screens and Capacitor shell |
 | `TODO.md` | Long-term feature backlog (derived from FairEmail) |
 | `CLAUDE.md` | Working rules for code generation (strict TDD) |
