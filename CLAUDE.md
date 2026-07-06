@@ -1,6 +1,6 @@
 # JojiMailAI
 
-A cross-platform, AI-native email client (Capacitor + React/Vite/TypeScript web UI) generated from spec files: `SKILL.md` defines the overall process and architecture, and each `generate_*.md` is the spec for one component. User stories in the specs are the source of truth for tests and code. `TODO.md` is the longer-term feature backlog (derived from FairEmail), not a spec.
+A cross-platform, AI-native email client (Capacitor + React/Vite/TypeScript web UI) generated from spec files: `SKILL.md` defines the overall process and architecture, and each `user-stories/generate_*.md` is the spec for one component. User stories in the specs are the source of truth for tests and code. `TODO.md` is the longer-term feature backlog (derived from FairEmail), not a spec.
 
 ## Architecture in one paragraph
 
@@ -8,7 +8,7 @@ All mail access goes through the **Proxy pattern**: the UI talks only to the `Ma
 
 ## TDD is mandatory
 
-When executing or re-executing any `generate_*.md` spec — including small schema changes to already-working code — follow the strict loop from `SKILL.md`:
+When executing or re-executing any `user-stories/generate_*.md` spec — including small schema changes to already-working code — follow the strict loop from `SKILL.md`:
 
 1. **Red**: translate the changed user stories into tests only (no edits under `src/` or `bridge/`), run the tests, and show the failing output.
 2. **Green**: write the minimum implementation to make those tests pass; change nothing the tests don't force.
@@ -30,4 +30,4 @@ Use `.venv/bin/python` — pytest is installed in the project venv, not globally
 
 - Do not run the app or the bridge against the live mailbox unless explicitly asked — "do not execute" in the specs refers to live runs; running pytest/vitest is always fine.
 - Bridge tests must mock the `simplegmail` `Gmail` client (the JosephMRally fork); provider tests mock `fetch`; intelligence tests mock the Anthropic SDK client (never call the live API); UI tests use the in-memory `FakeProvider` and `FakeIntelligence`. No real addresses, API keys, or credentials in fixtures.
-- Keep the wire schema in `generate_python_gmail_bridge.md` and the mapping in `generate_typescript_gmail_proxy.md` in agreement field-for-field; change them together or not at all.
+- Keep the wire schema in `user-stories/generate_python_gmail_bridge.md` and the mapping in `user-stories/generate_typescript_gmail_proxy.md` in agreement field-for-field; change them together or not at all.

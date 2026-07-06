@@ -101,15 +101,15 @@ Never edit implementation and tests in the same step.
   output of a successful test run (or at least the command used to verify it).
 
 **Order of Operations:**
-1.  Execute TDD loop for `src/providers/` per `generate_typescript_mail_provider.md`
-2.  Execute TDD loop for `bridge/app.py` per `generate_python_gmail_bridge.md`
-3.  Execute TDD loop for `src/providers/gmail/GmailProvider.ts` per `generate_typescript_gmail_proxy.md`
-4.  Execute TDD loop for `src/intelligence/` per `generate_typescript_mail_intelligence.md`
-5.  Execute TDD loop for the UI and Capacitor shell per `generate_typescript_email_ui.md`
+1.  Execute TDD loop for `src/providers/` per `user-stories/generate_typescript_mail_provider.md`
+2.  Execute TDD loop for `bridge/app.py` per `user-stories/generate_python_gmail_bridge.md`
+3.  Execute TDD loop for `src/providers/gmail/GmailProvider.ts` per `user-stories/generate_typescript_gmail_proxy.md`
+4.  Execute TDD loop for `src/intelligence/` per `user-stories/generate_typescript_mail_intelligence.md`
+5.  Execute TDD loop for the UI and Capacitor shell per `user-stories/generate_typescript_email_ui.md`
 6.  Review all five components and confirm they meet the requirements in their
     respective .md files, including that the wire schema in
-    `generate_python_gmail_bridge.md` and the mapping in
-    `generate_typescript_gmail_proxy.md` agree field-for-field, and that every
+    `user-stories/generate_python_gmail_bridge.md` and the mapping in
+    `user-stories/generate_typescript_gmail_proxy.md` agree field-for-field, and that every
     AI-driven UI flow works against `FakeIntelligence` alone.
 7.  Verify any remaining edge cases (e.g., empty mailbox, message with no
     `Date` header, HTML-only body, expired OAuth token, AI rate limit

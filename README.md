@@ -23,15 +23,15 @@ from, not the code itself:
 | File | Role |
 |------|------|
 | `SKILL.md` | The overall process and architecture: components, TDD loop, order of operations |
-| `generate_typescript_mail_provider.md` | Spec: `MailProvider` interface, shared model, `ProviderRegistry` |
-| `generate_python_gmail_bridge.md` | Spec: the local Gmail bridge service |
-| `generate_typescript_gmail_proxy.md` | Spec: `GmailProvider`, the first concrete proxy |
-| `generate_typescript_mail_intelligence.md` | Spec: `MailIntelligence` + `ClaudeIntelligence`, the AI core |
-| `generate_typescript_email_ui.md` | Spec: the AI-driven screens and Capacitor shell |
+| `user-stories/generate_typescript_mail_provider.md` | Spec: `MailProvider` interface, shared model, `ProviderRegistry` |
+| `user-stories/generate_python_gmail_bridge.md` | Spec: the local Gmail bridge service |
+| `user-stories/generate_typescript_gmail_proxy.md` | Spec: `GmailProvider`, the first concrete proxy |
+| `user-stories/generate_typescript_mail_intelligence.md` | Spec: `MailIntelligence` + `ClaudeIntelligence`, the AI core |
+| `user-stories/generate_typescript_email_ui.md` | Spec: the AI-driven screens and Capacitor shell |
 | `TODO.md` | Long-term feature backlog (derived from FairEmail) |
 | `CLAUDE.md` | Working rules for code generation (strict TDD) |
 
-User stories in the `generate_*.md` files are the source of truth: every story becomes a
+User stories in the `user-stories/generate_*.md` files are the source of truth: every story becomes a
 test before any implementation is written (red → green → refactor → commit).
 
 ## Running the client
