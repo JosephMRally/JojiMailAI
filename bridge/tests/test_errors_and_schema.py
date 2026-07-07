@@ -3,6 +3,8 @@
 - Gmail/simplegmail exceptions mapped to {code, message} with code from
   AUTH_REQUIRED | NOT_FOUND | RATE_LIMITED | PROVIDER_ERROR and HTTP status
   401/404/429/502
+- request-validation failures returned as the same {code, message} body
+  (code PROVIDER_ERROR, HTTP 422) — never FastAPI's default {detail: [...]}
 - all response JSON in snake_case exactly matching the spec's Output Schema
 """
 
@@ -62,6 +64,42 @@ def test_story_unknown_thread_maps_to_not_found():
     response = make_client(inbox_gmail()).get("/threads/does-not-exist")
     assert response.status_code == 404
     assert response.json()["code"] == "NOT_FOUND"
+
+
+# --- request-validation failures use the same wire error schema ---------------------
+
+
+def assert_wire_error_422(response, mentioning):
+    assert response.status_code == 422
+    body = response.json()
+    assert set(body) == {"code", "message"}  # never FastAPI's {detail: [...]}
+    assert body["code"] == "PROVIDER_ERROR"
+    assert mentioning in body["message"]  # the diagnostic detail survives
+
+
+def test_story_validation_failure_on_page_size_uses_wire_error_schema():
+    response = make_client(inbox_gmail()).get(
+        "/threads", params={"tag": "INBOX", "page_size": 200}
+    )
+    assert_wire_error_422(response, "page_size")
+
+
+def test_story_validation_failure_on_send_body_uses_wire_error_schema():
+    gmail = FakeGmail()
+    response = make_client(gmail).post(
+        "/messages/send", json={"to": [], "subject": "S", "body_plain": "B"}
+    )
+    assert_wire_error_422(response, "to")
+    assert gmail.send_calls == []
+
+
+def test_story_validation_failure_on_modify_body_uses_wire_error_schema():
+    msg = FakeMessage(id="m1")
+    response = make_client(FakeGmail(messages=[msg])).post(
+        "/messages/m1/modify", json={"action": "add_tag"}
+    )
+    assert_wire_error_422(response, "tag_id")
+    assert msg.added_labels == []
 
 
 # --- exact snake_case wire schema ---------------------------------------------------
