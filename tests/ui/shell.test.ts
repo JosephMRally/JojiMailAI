@@ -2,13 +2,19 @@
  * Capacitor-shell stories (user-stories/typescript_email_ui.md):
  * - story (engineer): capacitor.config.ts with appId, appName, and webDir
  *   pointing at Vite's build output (dist), with @capacitor-community/sqlite
- *   as the only native community plugin;
+ *   as the only native community plugin (jeep-sqlite on web);
  * - story (engineer): npm run build (Vite) produces the webDir output that
  *   `npx cap sync` packages.
  */
 import { describe, expect, it } from 'vitest';
 import capacitorConfig from '../../capacitor.config';
 import pkg from '../../package.json';
+
+const mainSources = import.meta.glob('/src/main.tsx', {
+  eager: true,
+  query: '?raw',
+  import: 'default',
+}) as Record<string, string>;
 
 describe('story: the Capacitor shell wraps the same tested web build', () => {
   it('sets appId, appName, and webDir to the Vite build output', () => {
@@ -23,6 +29,20 @@ describe('story: the Capacitor shell wraps the same tested web build', () => {
     );
     expect(community).toEqual(['@capacitor-community/sqlite']);
     expect(Object.keys(pkg.dependencies)).toContain('@capacitor/core');
+  });
+
+  it('jeep-sqlite backs the store on web: direct dependency, gated on the web platform at startup', () => {
+    // The sqlite plugin's web pathway needs the jeep-sqlite custom element
+    // registered and the web store initialized before createConnection —
+    // without this, `npm run dev` in a browser fails at startup. Not
+    // runnable in tests (no live app), so pin the dependency and the wiring.
+    expect(Object.keys(pkg.dependencies)).toContain('jeep-sqlite');
+    const main = mainSources['/src/main.tsx'] ?? '';
+    expect(main).toMatch(/getPlatform\(\)\s*===\s*['"]web['"]/); // web only — native uses the plugin
+    expect(main).toMatch(/jeep-sqlite\/loader/); // registers the custom element bundle
+    expect(main).toMatch(/defineCustomElements/);
+    expect(main).toMatch(/createElement\(\s*['"]jeep-sqlite['"]\s*\)/); // element present in the DOM
+    expect(main).toMatch(/initWebStore/); // web store ready before createConnection
   });
 });
 
