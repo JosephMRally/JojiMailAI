@@ -12,6 +12,7 @@
     "@capacitor-community/sqlite": "^8.1.0",
     "@capacitor/cli": "^8.4.1",
     "@capacitor/core": "^8.4.1",
+    "jeep-sqlite": "^2.8.0",
     "openai": "^6.45.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
