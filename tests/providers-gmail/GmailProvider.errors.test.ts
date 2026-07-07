@@ -48,6 +48,18 @@ describe('story: bridge error bodies {code, message} are rethrown as MailProvide
   }
 });
 
+describe('story: a bridge request-validation error keeps its diagnostic message', () => {
+  it('a 422 {code, message} body is rethrown with the message preserved, never collapsed', async () => {
+    const { mock, provider } = makeProvider();
+    mock.respondJson({ code: 'PROVIDER_ERROR', message: 'page_size: must be <= 100' }, 422);
+
+    const error = await provider.listThreads('inbox', { pageSize: 200 }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(MailProviderError);
+    expect((error as MailProviderError).code).toBe('PROVIDER_ERROR');
+    expect((error as MailProviderError).message).toContain('page_size');
+  });
+});
+
 describe("story: transport failures throw MailProviderError('NETWORK')", () => {
   it('a rejected fetch (bridge down) becomes NETWORK', async () => {
     const { mock, provider } = makeProvider();

@@ -132,6 +132,19 @@ describe.each(implementations)('MailStore contract — %s', (_name, makeStore) =
       expect(await store.getMessage('m1')).toEqual(updated);
       expect(ids(await store.getThread('t1'))).toEqual(['m1', 'm2']);
     });
+
+    it('re-upserting a message with a different tag set replaces the stored tags', async () => {
+      const m6 = makeAccountAFixtures().messages.find((m) => m.messageId === 'm6')!;
+      expect((await store.listThreads(ACCOUNT_A, 'billing')).map((t) => t.threadId)).toEqual(['t5']);
+
+      const updated: Message = { ...m6, tagIds: ['inbox', 'receipts'] };
+      await store.upsertMessages(ACCOUNT_A, [updated]);
+
+      // The removed tag leaves no phantom row behind; the new tag lands.
+      expect((await store.getMessage('m6'))?.tagIds).toEqual(['inbox', 'receipts']);
+      expect(await store.listThreads(ACCOUNT_A, 'billing')).toEqual([]);
+      expect((await store.listThreads(ACCOUNT_A, 'receipts')).map((t) => t.threadId)).toEqual(['t5']);
+    });
   });
 
   describe('story: previously synced mail is listed and read even when the bridge and network are unreachable', () => {
@@ -212,6 +225,18 @@ describe.each(implementations)('MailStore contract — %s', (_name, makeStore) =
 
       expect(ids((await store.searchText(ACCOUNT_A, 'sushi')).messages)).toEqual(['m4']);
       expect(ids((await store.searchText(ACCOUNT_A, 'ramen')).messages)).toEqual([]);
+    });
+
+    it('a subject-only update also recomputes the filter: new subject found, old forgotten', async () => {
+      const m5 = makeAccountAFixtures().messages.find((m) => m.messageId === 'm5')!;
+      expect(ids((await store.searchText(ACCOUNT_A, 'passing')).messages)).toEqual(['m5']);
+
+      const updated: Message = { ...m5, subject: 'Build is failing again' };
+      await store.upsertMessages(ACCOUNT_A, [updated]);
+
+      // A filter recomputed only on body_plain changes would miss 'failing'.
+      expect(ids((await store.searchText(ACCOUNT_A, 'failing')).messages)).toEqual(['m5']);
+      expect(ids((await store.searchText(ACCOUNT_A, 'passing')).messages)).toEqual([]);
     });
   });
 

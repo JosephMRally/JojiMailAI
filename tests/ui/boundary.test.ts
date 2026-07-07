@@ -38,12 +38,17 @@ const ALLOWED_BY_LAYER: Array<[string, Set<string>]> = [
   ['providers/', new Set(['MailProvider', 'model', 'ProviderRegistry'])],
   ['intelligence/', new Set(['MailIntelligence'])],
   ['store/', new Set(['MailStore'])],
-  ['plugins/', new Set(['MailPlugin', 'PluginHost', 'PluginSettings'])],
+  // The spec allows plug-in imports only from MailPlugin.ts/PluginHost.ts;
+  // PluginSettings.ts exports concrete classes and stays composition-only.
+  ['plugins/', new Set(['MailPlugin', 'PluginHost'])],
 ];
 
 /** Modules that are concrete implementations; only the composition root may name them. */
 const CONCRETE_MODULE_RE =
-  /providers\/gmail|FakeProvider|LocalIntelligence|FakeIntelligence|SqliteMailStore|FakeMailStore|CapacitorDbHandle|DbHandle|FakePlugin/;
+  /providers\/gmail|FakeProvider|LocalIntelligence|FakeIntelligence|SqliteMailStore|FakeMailStore|CapacitorDbHandle|DbHandle|FakePlugin|PluginSettings(?:\.tsx?)?$/;
+
+/** The composition-root modules; UI files must receive their products as props. */
+const COMPOSITION_MODULE_RE = /(?:^|\/)(?:composition|config)(?:\.tsx?)?$/;
 
 function importSpecifiers(source: string): string[] {
   return [...source.matchAll(IMPORT_SPECIFIER_RE)].map((match) => match[1]);
@@ -69,6 +74,30 @@ describe('story: all four proxy boundaries hold in every UI file', () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+
+  it('no file under src/ui/ imports the composition root or the config module', () => {
+    // Importing src/composition.ts (which constructs every concrete backend)
+    // or src/config.ts would bypass the layer scan above; UI files receive
+    // everything through props instead.
+    const offenders: string[] = [];
+    for (const [file, source] of Object.entries(uiSources)) {
+      for (const specifier of importSpecifiers(source)) {
+        if (COMPOSITION_MODULE_RE.test(specifier)) {
+          offenders.push(`${file} imports ${specifier}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('the layer and composition checks flag known-bad specifiers (self-test)', () => {
+    expect(COMPOSITION_MODULE_RE.test('../composition')).toBe(true);
+    expect(COMPOSITION_MODULE_RE.test('../config')).toBe(true);
+    expect(COMPOSITION_MODULE_RE.test('./format')).toBe(false);
+    expect(CONCRETE_MODULE_RE.test('../plugins/PluginSettings')).toBe(true);
+    expect(CONCRETE_MODULE_RE.test('../providers/gmail')).toBe(true);
+    expect(CONCRETE_MODULE_RE.test('../plugins/PluginHost')).toBe(false);
   });
 });
 

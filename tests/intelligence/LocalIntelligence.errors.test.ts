@@ -20,7 +20,9 @@ import {
   TAGS,
   TEST_CONFIG,
   VALID_CLASSIFICATION,
+  VALID_CRITERIA,
   VALID_DIGEST,
+  VALID_DRAFT,
 } from './fixtures';
 
 function make() {
@@ -126,6 +128,46 @@ describe('story: one automatic retry on schema-invalid output before AI_BAD_OUTP
 
     const digest = await intelligence.summarizeThread(fixtureThread());
     expect(digest).toEqual(VALID_DIGEST);
+    expect(mock.calls).toHaveLength(2);
+  });
+});
+
+describe('story: EVERY flow zod-validates its output — draftReply and parseSearchQuery included', () => {
+  it('draftReply: schema-invalid JSON twice becomes AI_BAD_OUTPUT after exactly two requests', async () => {
+    const { mock, intelligence } = make();
+    // Wrong field name: a schema bypass (e.g. z.any()) would accept this.
+    mock.respondJson({ body: 'wrong field' }).respondJson({ body: 'wrong field' });
+
+    const error = await intelligence.draftReply(fixtureThread()).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(MailIntelligenceError);
+    expect((error as MailIntelligenceError).code).toBe('AI_BAD_OUTPUT');
+    expect(mock.calls).toHaveLength(2);
+  });
+
+  it('draftReply: one schema-invalid output then a valid draft — the retry recovers', async () => {
+    const { mock, intelligence } = make();
+    mock.respondJson({}).respondJson(VALID_DRAFT);
+
+    await expect(intelligence.draftReply(fixtureThread())).resolves.toEqual(VALID_DRAFT);
+    expect(mock.calls).toHaveLength(2);
+  });
+
+  it('parseSearchQuery: schema-invalid JSON twice becomes AI_BAD_OUTPUT after exactly two requests', async () => {
+    const { mock, intelligence } = make();
+    // text must be a string: a schema bypass would accept this.
+    mock.respondJson({ text: 42 }).respondJson({ text: 42 });
+
+    const error = await intelligence.parseSearchQuery('42', TAGS).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(MailIntelligenceError);
+    expect((error as MailIntelligenceError).code).toBe('AI_BAD_OUTPUT');
+    expect(mock.calls).toHaveLength(2);
+  });
+
+  it('parseSearchQuery: one schema-invalid output then valid criteria — the retry recovers', async () => {
+    const { mock, intelligence } = make();
+    mock.respondJson({ dateFrom: 'yesterday' }).respondJson(VALID_CRITERIA);
+
+    await expect(intelligence.parseSearchQuery('invoice', TAGS)).resolves.toEqual(VALID_CRITERIA);
     expect(mock.calls).toHaveLength(2);
   });
 });

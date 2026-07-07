@@ -40,16 +40,38 @@ describe('story: dispatch calls only enabled plug-ins that declare the point', (
 
   it('a disabled plug-in is skipped by every dispatch', async () => {
     const host = makeHost();
-    const plugin = new FakePlugin({ id: 'muted' });
+    const plugin = new FakePlugin({
+      id: 'muted',
+      composeTransform: (draft) => ({ ...draft, bodyPlain: 'hijacked' }),
+    });
     host.register(plugin);
     host.setEnabled('muted', false);
 
     expect(await host.dispatchMessageView(makeMessage())).toEqual([]);
     expect(await host.dispatchThreadAction(makeThreadSummary())).toEqual([]);
     expect(await host.dispatchSettingsPanel()).toEqual([]);
+    expect(await host.dispatchComposeAction(makeDraft())).toEqual(makeDraft());
     expect(plugin.calls.messageView).toBe(0);
     expect(plugin.calls.threadAction).toBe(0);
     expect(plugin.calls.settingsPanel).toBe(0);
+    expect(plugin.calls.composeAction).toBe(0);
+  });
+
+  it('a composeAction hook on a plug-in that does not declare the point is never applied', async () => {
+    const host = makeHost();
+    let called = 0;
+    host.register(
+      makeInlinePlugin({
+        id: 'undeclared-compose',
+        contributes: () => ['messageView'],
+        composeAction: (draft) => {
+          called += 1;
+          return { ...draft, bodyPlain: 'hijacked' };
+        },
+      }),
+    );
+    await expect(host.dispatchComposeAction(makeDraft())).resolves.toEqual(makeDraft());
+    expect(called).toBe(0);
   });
 
   it('a plug-in that declares a point but implements no hook is skipped without error', async () => {

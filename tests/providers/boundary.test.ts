@@ -30,9 +30,40 @@ const providerLayerSources = import.meta.glob('/src/providers/*.ts', {
 /** Matches import/export specifiers such as `from './x'` or `import('./x')`. */
 const IMPORT_SPECIFIER_RE = /(?:from|import)\s*\(?\s*['"]([^'"]+)['"]/g;
 
+/** The flat interface modules of src/providers/ that UI files may import. */
+const PROVIDER_INTERFACE_MODULES = new Set(['MailProvider', 'model', 'ProviderRegistry']);
+
+/**
+ * True when a specifier reaches into the providers layer anywhere other than
+ * the flat interface modules. Covers files inside a concrete directory
+ * ('providers/gmail/GmailProvider') AND bare directory-root imports
+ * ('providers/gmail' — which adding an index.ts would make resolvable), so a
+ * routine index-module refactor cannot silently defeat the boundary.
+ */
+function isConcreteProviderImport(specifier: string): boolean {
+  const index = specifier.lastIndexOf('providers/');
+  if (index === -1) return false;
+  const rest = specifier.slice(index + 'providers/'.length).replace(/\.tsx?$/, '');
+  return rest.includes('/') || !PROVIDER_INTERFACE_MODULES.has(rest);
+}
+
 describe('story: the Proxy boundary is enforced by a test, not convention', () => {
   it('the app source tree exists to be checked', () => {
     expect(Object.keys(appSources).length).toBeGreaterThan(0);
+  });
+
+  it('the checker flags concrete-provider specifiers with and without a trailing path', () => {
+    // Self-test of the enforcement, so a lax regex cannot pass silently.
+    expect(isConcreteProviderImport('../providers/gmail/GmailProvider')).toBe(true);
+    expect(isConcreteProviderImport('../providers/gmail')).toBe(true); // directory-root import
+    expect(isConcreteProviderImport('../providers/gmail/index')).toBe(true);
+    expect(isConcreteProviderImport('../../providers/outlook')).toBe(true); // any future platform
+    expect(isConcreteProviderImport('../providers/FakeProvider')).toBe(true); // concrete, though flat
+    expect(isConcreteProviderImport('../providers/MailProvider')).toBe(false);
+    expect(isConcreteProviderImport('../providers/model')).toBe(false);
+    expect(isConcreteProviderImport('../providers/model.ts')).toBe(false);
+    expect(isConcreteProviderImport('../providers/ProviderRegistry')).toBe(false);
+    expect(isConcreteProviderImport('react')).toBe(false);
   });
 
   it('no file under src/ui/ imports from any concrete provider directory', () => {
@@ -40,9 +71,7 @@ describe('story: the Proxy boundary is enforced by a test, not convention', () =
     for (const [file, source] of Object.entries(uiSources)) {
       for (const match of source.matchAll(IMPORT_SPECIFIER_RE)) {
         const specifier = match[1];
-        // A concrete provider lives in a subdirectory of providers/ (e.g.
-        // providers/gmail/...); the flat interface files do not.
-        if (/providers\/[^/'"]+\//.test(specifier)) {
+        if (isConcreteProviderImport(specifier)) {
           offenders.push(`${file} imports ${specifier}`);
         }
       }
