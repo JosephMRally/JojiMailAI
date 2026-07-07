@@ -14,7 +14,7 @@ import type { PluginHost } from '../plugins/PluginHost';
 import type { MailProvider, ProviderCapabilities } from '../providers/MailProvider';
 import type { Message, Tag } from '../providers/model';
 import type { MailStore } from '../store/MailStore';
-import { describeAiError } from './errors';
+import { describeAiError, toProviderFailure, type ProviderFailure } from './errors';
 import { formatThreadDate } from './format';
 import { blockRemoteImages } from './html';
 
@@ -55,6 +55,8 @@ export function ThreadViewScreen({
 }: ThreadViewScreenProps) {
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [messageTags, setMessageTags] = useState<Record<string, string[]>>({});
+  const [loadError, setLoadError] = useState<ProviderFailure | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [digest, setDigest] = useState<DigestState>({ state: 'idle' });
   const [digestAttempt, setDigestAttempt] = useState(0);
   const [panels, setPanels] = useState<Record<string, ViewContribution[]>>({});
@@ -63,18 +65,25 @@ export function ThreadViewScreen({
   // Load from the store (offline-first) and mark the thread read via the provider.
   useEffect(() => {
     let live = true;
-    void store.getThread(threadId).then((thread) => {
-      if (!live) return;
-      setMessages(thread);
-      setMessageTags(Object.fromEntries(thread.map((m) => [m.messageId, m.tagIds])));
-      for (const message of thread.filter((m) => m.unread)) {
-        void provider.markRead(message.messageId).catch(() => {});
-      }
-    });
+    setLoadError(null);
+    store.getThread(threadId).then(
+      (thread) => {
+        if (!live) return;
+        setMessages(thread);
+        setMessageTags(Object.fromEntries(thread.map((m) => [m.messageId, m.tagIds])));
+        for (const message of thread.filter((m) => m.unread)) {
+          void provider.markRead(message.messageId).catch(() => {});
+        }
+      },
+      (error: unknown) => {
+        // Error state, never a stuck loading screen; only NETWORK retries.
+        if (live) setLoadError(toProviderFailure(error));
+      },
+    );
     return () => {
       live = false;
     };
-  }, [store, provider, threadId]);
+  }, [store, provider, threadId, loadAttempt]);
 
   // The digest loads asynchronously — the messages never wait on it.
   useEffect(() => {
@@ -157,8 +166,17 @@ export function ThreadViewScreen({
           )}
         </section>
       )}
-      {messages === null ? (
+      {loadError !== null ? (
+        <div role="alert">
+          {loadError.message}{' '}
+          {loadError.code === 'NETWORK' && (
+            <button onClick={() => setLoadAttempt((attempt) => attempt + 1)}>Retry</button>
+          )}
+        </div>
+      ) : messages === null ? (
         <p>Loading…</p>
+      ) : messages.length === 0 ? (
+        <p>no messages</p>
       ) : (
         messages.map((message) => {
           const currentTags = messageTags[message.messageId] ?? message.tagIds;

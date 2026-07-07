@@ -12,7 +12,7 @@ import type { MailIntelligence } from '../intelligence/MailIntelligence';
 import type { PluginHost } from '../plugins/PluginHost';
 import type { MailProvider } from '../providers/MailProvider';
 import type { Draft, Message } from '../providers/model';
-import { describeAiError, toProviderFailure } from './errors';
+import { describeAiError, toProviderFailure, type ProviderFailure } from './errors';
 
 export interface ComposePrefill {
   to?: string;
@@ -49,7 +49,7 @@ export function ComposeScreen({
   const [body, setBody] = useState('');
   const [guidance, setGuidance] = useState('');
   const [sentId, setSentId] = useState<string | null>(null);
-  const [sendError, setSendError] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<ProviderFailure | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
 
   const composePlugins = pluginHost
@@ -71,7 +71,7 @@ export function ComposeScreen({
       const result = await provider.send(outgoing);
       setSentId(result.messageId);
     } catch (error) {
-      setSendError(toProviderFailure(error).message);
+      setSendError(toProviderFailure(error));
     }
   };
 
@@ -128,7 +128,14 @@ export function ComposeScreen({
           {aiError} <button onClick={() => void draftWithAi()}>Retry</button>
         </div>
       )}
-      {sendError !== null && <div role="alert">{sendError}</div>}
+      {sendError !== null && (
+        <div role="alert">
+          {/* Keyed off MailProviderError.code: AUTH_REQUIRED shows the error's
+              own fix instructions; only NETWORK offers a retry. */}
+          {sendError.message}{' '}
+          {sendError.code === 'NETWORK' && <button onClick={() => void send()}>Retry</button>}
+        </div>
+      )}
       {sentId !== null && <p role="status">Sent — message id {sentId}</p>}
     </section>
   );
