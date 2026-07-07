@@ -29,7 +29,7 @@ function make() {
   return { mock, intelligence };
 }
 
-async function classifyError(mock: ReturnType<typeof createChatMock>, intelligence: LocalIntelligence) {
+async function classifyError(intelligence: LocalIntelligence) {
   return intelligence.classify(fixtureMessage(), TAGS).catch((e: unknown) => e);
 }
 
@@ -38,7 +38,7 @@ describe('story: connection refused/timeout becomes AI_UNAVAILABLE with an actio
     const { mock, intelligence } = make();
     mock.reject(new APIConnectionError({ message: 'Connection error.' }));
 
-    const error = await classifyError(mock, intelligence);
+    const error = await classifyError(intelligence);
     expect(error).toBeInstanceOf(MailIntelligenceError);
     expect((error as MailIntelligenceError).code).toBe('AI_UNAVAILABLE');
     const message = (error as MailIntelligenceError).message;
@@ -52,7 +52,7 @@ describe('story: connection refused/timeout becomes AI_UNAVAILABLE with an actio
     const { mock, intelligence } = make();
     mock.reject(new APIConnectionTimeoutError({ message: 'Request timed out.' }));
 
-    const error = await classifyError(mock, intelligence);
+    const error = await classifyError(intelligence);
     expect((error as MailIntelligenceError).code).toBe('AI_UNAVAILABLE');
   });
 
@@ -60,7 +60,7 @@ describe('story: connection refused/timeout becomes AI_UNAVAILABLE with an actio
     const { mock, intelligence } = make();
     mock.reject(new APIConnectionError({ message: 'Connection error.' }));
 
-    await classifyError(mock, intelligence);
+    await classifyError(intelligence);
     expect(mock.calls).toHaveLength(1);
   });
 });
@@ -70,7 +70,7 @@ describe('story: 404/unknown model becomes AI_MODEL_NOT_FOUND naming the configu
     const { mock, intelligence } = make();
     mock.reject(Object.assign(new Error("model 'test-model' not found"), { status: 404 }));
 
-    const error = await classifyError(mock, intelligence);
+    const error = await classifyError(intelligence);
     expect(error).toBeInstanceOf(MailIntelligenceError);
     expect((error as MailIntelligenceError).code).toBe('AI_MODEL_NOT_FOUND');
     const message = (error as MailIntelligenceError).message;
@@ -84,7 +84,7 @@ describe('story: anything else becomes AI_ERROR', () => {
     const { mock, intelligence } = make();
     mock.reject(Object.assign(new Error('internal server error'), { status: 500 }));
 
-    const error = await classifyError(mock, intelligence);
+    const error = await classifyError(intelligence);
     expect((error as MailIntelligenceError).code).toBe('AI_ERROR');
   });
 
@@ -92,7 +92,7 @@ describe('story: anything else becomes AI_ERROR', () => {
     const { mock, intelligence } = make();
     mock.reject(new Error('boom'));
 
-    const error = await classifyError(mock, intelligence);
+    const error = await classifyError(intelligence);
     expect(error).toBeInstanceOf(MailIntelligenceError);
     expect((error as MailIntelligenceError).code).toBe('AI_ERROR');
   });
@@ -114,7 +114,7 @@ describe('story: one automatic retry on schema-invalid output before AI_BAD_OUTP
       .respondJson({ tagIds: ['t-finance'], importance: 'mega' })
       .respondJson({ tagIds: ['t-finance'], importance: 'mega' });
 
-    const error = await classifyError(mock, intelligence);
+    const error = await classifyError(intelligence);
     expect(error).toBeInstanceOf(MailIntelligenceError);
     expect((error as MailIntelligenceError).code).toBe('AI_BAD_OUTPUT');
     expect(mock.calls).toHaveLength(2);

@@ -5,8 +5,10 @@
  * mocked OpenAI-compatible chat client. No test may open a socket or need a
  * running inference server — every completion is queued here.
  */
+import type { ChatCompletionCreateParamsNonStreaming } from 'openai/resources/chat/completions';
 import type { Message, Tag } from '../../src/providers/model';
 import type { AiConfig } from '../../src/config';
+import type { IntelligenceChatClient } from '../../src/intelligence/LocalIntelligence';
 
 /** Marks the tail of a long plain body; must never appear in a classify prompt. */
 export const LONG_TAIL_SENTINEL = 'XX_LONG_TAIL_SENTINEL_XX';
@@ -78,14 +80,8 @@ interface QueuedCompletion {
 }
 
 export interface ChatMock {
-  /** Structurally what LocalIntelligence needs: chat.completions.create. */
-  client: {
-    chat: {
-      completions: {
-        create: (params: Record<string, unknown>) => Promise<unknown>;
-      };
-    };
-  };
+  /** Exactly the slice of the SDK LocalIntelligence accepts by injection. */
+  client: IntelligenceChatClient;
   /** Every params object passed to create, in order. */
   calls: Array<Record<string, any>>;
   respondJson(value: unknown): ChatMock;
@@ -96,32 +92,33 @@ export interface ChatMock {
 export function createChatMock(): ChatMock {
   const calls: Array<Record<string, any>> = [];
   const queue: QueuedCompletion[] = [];
-  const mock: ChatMock = {
-    calls,
-    client: {
-      chat: {
-        completions: {
-          create: async (params: Record<string, unknown>) => {
-            calls.push(params as Record<string, any>);
-            const next = queue.shift() ?? { content: '{}' };
-            if (next.error !== undefined) throw next.error;
-            return {
-              id: 'chatcmpl-fixture',
-              object: 'chat.completion',
-              created: 1_750_000_000,
-              model: 'test-model',
-              choices: [
-                {
-                  index: 0,
-                  finish_reason: 'stop',
-                  message: { role: 'assistant', content: next.content ?? null },
-                },
-              ],
-            };
-          },
+  const client: IntelligenceChatClient = {
+    chat: {
+      completions: {
+        create: async (params: ChatCompletionCreateParamsNonStreaming) => {
+          calls.push(params as unknown as Record<string, any>);
+          const next = queue.shift() ?? { content: '{}' };
+          if (next.error !== undefined) throw next.error;
+          return {
+            id: 'chatcmpl-fixture',
+            object: 'chat.completion',
+            created: 1_750_000_000,
+            model: 'test-model',
+            choices: [
+              {
+                index: 0,
+                finish_reason: 'stop',
+                message: { role: 'assistant', content: next.content ?? null },
+              },
+            ],
+          };
         },
       },
     },
+  };
+  const mock: ChatMock = {
+    calls,
+    client,
     respondJson(value: unknown) {
       queue.push({ content: JSON.stringify(value) });
       return mock;
