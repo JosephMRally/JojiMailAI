@@ -20,6 +20,7 @@ from email.utils import parsedate_to_datetime
 from typing import Literal, Optional
 
 from fastapi import FastAPI, Query, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, model_validator
 
@@ -261,6 +262,22 @@ def create_app(
     async def bridge_error_handler(request: Request, exc: BridgeError):
         return JSONResponse(
             status_code=exc.status, content={"code": exc.code, "message": exc.message}
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error_handler(request: Request, exc: RequestValidationError):
+        # Same wire error schema as every other failure — never FastAPI's
+        # default {detail: [...]} — so the proxy keeps the diagnostic detail.
+        detail = "; ".join(
+            "{}: {}".format(
+                ".".join(str(part) for part in err.get("loc", ())),
+                err.get("msg", "invalid"),
+            )
+            for err in exc.errors()
+        )
+        return JSONResponse(
+            status_code=422,
+            content={"code": "PROVIDER_ERROR", "message": f"invalid request: {detail}"},
         )
 
     if verbose:
