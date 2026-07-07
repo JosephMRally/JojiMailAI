@@ -42,6 +42,42 @@ def test_story_server_binds_loopback_only(monkeypatch, tmp_path):
     assert kwargs["port"] == 9001
 
 
+def test_story_main_plumbs_token_client_secret_and_verbose_into_create_app(monkeypatch):
+    """The override flags must actually reach create_app — parse_args tests
+    alone would pass even if main() dropped them for the defaults."""
+    runs = []
+    fake_uvicorn = types.ModuleType("uvicorn")
+    fake_uvicorn.run = lambda app, **kwargs: runs.append((app, kwargs))
+    monkeypatch.setitem(sys.modules, "uvicorn", fake_uvicorn)
+
+    created = []
+    sentinel = object()
+
+    def fake_create_app(**kwargs):
+        created.append(kwargs)
+        return sentinel
+
+    monkeypatch.setattr(bridge_app, "create_app", fake_create_app)
+
+    bridge_app.main(
+        [
+            "--token", "/somewhere/else/tok.json",
+            "--client-secret", "/somewhere/else/cs.json",
+            "--verbose",
+        ]
+    )
+
+    assert created == [
+        {
+            "token_path": "/somewhere/else/tok.json",
+            "client_secret_path": "/somewhere/else/cs.json",
+            "verbose": True,
+        }
+    ]
+    ((served_app, _),) = runs
+    assert served_app is sentinel  # uvicorn serves the app built from the flags
+
+
 def test_story_token_flag_overrides_default_home_location():
     assert parse_args([]).token == os.path.expanduser("~/gmail-token.json")
     assert parse_args(["--token", "/somewhere/else/tok.json"]).token == "/somewhere/else/tok.json"
