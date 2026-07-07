@@ -123,6 +123,25 @@ describe('story: HTML renders sandboxed with remote images blocked until I opt i
     expect(screen.queryByTitle(/HTML body/)).toBeNull();
     expect(screen.getByText('Please pay the unpaid invoice by Friday.')).toBeInTheDocument();
   });
+
+  // Edge case (SKILL.md step 9): a message with an empty body.
+  it('renders a message with no body at all — headers shown, no crash, no "undefined" text', async () => {
+    const bodiless = makeMessage({
+      messageId: 'mb',
+      threadId: 't-bodiless',
+      subject: 'Read receipt',
+      bodyPlain: undefined,
+      bodyHtml: undefined,
+      unread: false,
+    });
+    const { user } = await renderApp({ seed: [bodiless] });
+    await openThread(user, 'Read receipt');
+
+    const article = (await screen.findAllByRole('article'))[0];
+    expect(article.textContent).toContain('bob@example.com');
+    expect(article.textContent).not.toContain('undefined');
+    expect(screen.queryByTitle(/HTML body/)).toBeNull();
+  });
 });
 
 describe('story: long threads open with an async AI digest that never delays the messages', () => {

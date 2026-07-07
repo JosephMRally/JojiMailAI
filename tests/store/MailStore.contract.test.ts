@@ -109,6 +109,32 @@ describe.each(implementations)('MailStore contract — %s', (_name, makeStore) =
       expect(stored?.bodyHtml).toContain('Weekly digest');
     });
 
+    // Edge case (SKILL.md step 9): a message with an empty body.
+    it('round-trips a message with an empty body and still finds it by subject tokens', async () => {
+      const bodiless: Message = {
+        messageId: 'm-empty',
+        threadId: 't-empty',
+        from: 'alice@example.com',
+        to: ['me@example.com'],
+        cc: [],
+        bcc: [],
+        subject: 'Calendar reminder',
+        date: Date.UTC(2025, 0, 7, 9, 0, 0),
+        bodyPlain: '',
+        unread: false,
+        tagIds: ['inbox'],
+      };
+      await store.upsertMessages(ACCOUNT_A, [bodiless]);
+
+      const stored = await store.getMessage('m-empty');
+      expect(stored?.bodyPlain).toBe('');
+      expect(stored?.bodyHtml).toBeUndefined();
+      // The Bloom filter built over subject + empty body still indexes the subject.
+      const result = await store.searchText(ACCOUNT_A, 'calendar reminder');
+      expect(result.tooGeneric).toBe(false);
+      expect(result.messages.map((m) => m.messageId)).toEqual(['m-empty']);
+    });
+
     it('getMessage resolves undefined for an unknown id', async () => {
       expect(await store.getMessage('no-such-message')).toBeUndefined();
     });

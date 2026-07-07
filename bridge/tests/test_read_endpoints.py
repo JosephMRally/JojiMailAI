@@ -212,3 +212,25 @@ def test_story_bodies_omit_body_plain_when_absent():
     wire = get_message(FakeMessage(id="mb3", plain=None, html="<p>html only</p>"))
     assert wire["body_html"] == "<p>html only</p>"
     assert "body_plain" not in wire
+
+
+# Edge case (SKILL.md step 9): a message with an empty body.
+
+
+def test_story_edge_message_with_no_body_at_all_serves_with_both_body_keys_omitted():
+    """A bodiless message (no plain, no html) still serves as a full wire
+    message — both optional body keys omitted, every required key present."""
+    wire = get_message(FakeMessage(id="mb4", plain=None, html=None))
+    assert "body_plain" not in wire
+    assert "body_html" not in wire
+    for key in ("message_id", "thread_id", "from", "to", "cc", "bcc",
+                "subject", "date", "unread", "tag_ids"):
+        assert key in wire
+
+
+def test_story_edge_empty_string_plain_body_is_preserved_not_dropped():
+    """An empty-string body is a present-but-empty body: body_plain must be
+    "" on the wire, not omitted (absent and empty are different states)."""
+    wire = get_message(FakeMessage(id="mb5", plain="", html=None))
+    assert wire["body_plain"] == ""
+    assert "body_html" not in wire

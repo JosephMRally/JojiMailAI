@@ -108,6 +108,27 @@ describe('story: wire snake_case maps field-for-field to camelCase — Message',
     const messages = await provider.getThread('t1');
     expect(messages).toStrictEqual([makeFixtures().messages[0], makeFixtures().messages[1]]);
   });
+
+  // Edge case (SKILL.md step 9): a message with an empty body.
+  it('a wire message with no body at all maps without either body key — and without crashing', async () => {
+    const { mock, provider } = makeProvider();
+    const { body_plain: _drop, ...bodiless } = wireMessageM1();
+    mock.respondJson(bodiless);
+
+    const message = await provider.getMessage('m1');
+    expect('bodyPlain' in message).toBe(false);
+    expect('bodyHtml' in message).toBe(false);
+    expect(message.subject).toBe(bodiless.subject);
+  });
+
+  it('an empty-string body_plain maps to bodyPlain "" — present-but-empty is not absent', async () => {
+    const { mock, provider } = makeProvider();
+    mock.respondJson({ ...wireMessageM1(), body_plain: '' });
+
+    const message = await provider.getMessage('m1');
+    expect(message.bodyPlain).toBe('');
+    expect('bodyPlain' in message).toBe(true);
+  });
 });
 
 describe('story: wire snake_case maps field-for-field to camelCase — SendResult', () => {
