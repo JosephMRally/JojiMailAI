@@ -72,7 +72,8 @@ are needed only for device builds.
 ```
 npm install                                   # TypeScript app + test toolchain
 python3 -m venv .venv                         # Python env for the bridge
-.venv/bin/pip install fastapi httpx pytest
+.venv/bin/pip install fastapi httpx pytest    # bridge + its test suite
+.venv/bin/pip install uvicorn                 # only to run the bridge; tests never need it
 ```
 
 The bridge imports `simplegmail` lazily, so tests never need it. Install it (the
@@ -164,7 +165,9 @@ app at the bridge with `VITE_BRIDGE_URL` (the Android emulator reaches the host 
 **AI features need a self-hosted inference server** — Ollama, vLLM, or LM Studio, all of
 which serve an OpenAI-compatible `/v1` endpoint. Configure it with `VITE_AI_BASE_URL`
 (default `http://127.0.0.1:11434/v1`, Ollama's default; LM Studio uses `:1234/v1`, vLLM
-`:8000/v1`) and `VITE_AI_MODEL` (the model you've pulled/loaded, e.g. `llama3.1`). Mail
+`:8000/v1`) and `VITE_AI_MODEL` (the model you've pulled/loaded, e.g. `llama3.1`).
+`VITE_AI_API_KEY` defaults to the placeholder `not-needed` that self-hosted servers
+accept; set it only if your server sits behind a gateway that checks keys. Mail
 content goes only to that server — never to a cloud AI service. Without a running server,
 the AI affordances are disabled and everything else works.
 
