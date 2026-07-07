@@ -33,11 +33,12 @@ makes local search instant without ever being able to miss a real match.
 
 ## Project status
 
-**Building from spec.** Components 1-5 of the build order are implemented and tested —
+**Building from spec.** Components 1-6 of the build order are implemented and tested —
 the provider interface (`src/providers/`), the Gmail bridge (`bridge/`), the
-`GmailProvider` proxy, the self-hosted AI layer (`src/intelligence/`), and the local
-store with Bloom-filter search (`src/store/`). The plug-in system and the UI/shell are
-still spec-only. Every component is generated from its spec:
+`GmailProvider` proxy, the self-hosted AI layer (`src/intelligence/`), the local
+store with Bloom-filter search (`src/store/`), and the plug-in system
+(`src/plugins/`). The UI/shell is still spec-only. Every component is generated from
+its spec:
 
 | File | Role |
 |------|------|
@@ -138,11 +139,19 @@ interface returns and hides anything the provider's `capabilities()` doesn't sup
 
 ## Extending with plug-ins
 
-Implement the `MailPlugin` interface and register it at the composition root. Plug-ins
-contribute through typed extension points — message-view panels, compose transforms,
-thread actions, settings panels — and are crash-isolated: a plug-in that throws is
-auto-disabled with an error shown in the plug-in settings screen, and core mail flows
-keep working. Enable, disable, and configure plug-ins from settings.
+Implement the `MailPlugin` interface and register it with the `PluginHost` at the
+composition root. The plug-in API is versioned (`PLUGIN_API_VERSION`); a plug-in built
+against another version is rejected at startup with an error naming both versions.
+Plug-ins contribute through typed extension points — message-view panels, compose
+transforms (applied in registration order, never auto-sending), thread actions,
+settings panels — and only the points a plug-in declares are ever called. Every call
+is crash-isolated: a plug-in that throws or hangs past two seconds is auto-disabled
+for the session with an error shown in the plug-in settings screen, and core mail
+flows keep working. Enable/disable choices persist across restarts. Plug-ins that
+bundle a whole mail backend register it the normal way — a `MailProvider` into the
+`ProviderRegistry` — there is no second mechanism. In v1, plug-ins are in-process
+TypeScript modules registered at the composition root; loading them dynamically from
+files or URLs is a deliberate non-goal.
 
 ## Safety
 
