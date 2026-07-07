@@ -22,9 +22,11 @@ import { InMemoryPluginSettings } from '../../src/plugins/PluginSettings';
 import { FakePlugin } from '../../src/plugins/FakePlugin';
 import { renderApp } from './harness';
 import { DEFAULT_MESSAGES, PLAN_MESSAGES, TAGS, makeMessage } from './fixtures';
+import { MailProviderError } from '../../src/providers/model';
 import {
   CapabilityProvider,
   DeferredDigestIntelligence,
+  FlakyStore,
   RejectingIntelligence,
 } from './testDoubles';
 
@@ -50,6 +52,33 @@ describe('story: a thread opens oldest-first and is marked read via the provider
     expect(articles[1].textContent).toContain('still unpaid');
     await waitFor(() => expect(markRead).toHaveBeenCalledWith('m2'));
     expect(markRead).not.toHaveBeenCalledWith('m1');
+  });
+});
+
+describe('story: the thread view has error and empty states — never a stuck loading screen', () => {
+  it('a store read failure shows error copy with a Retry that recovers', async () => {
+    const store = new FlakyStore();
+    store.getThreadFailWith = new MailProviderError('NETWORK', 'local database unavailable');
+    const { user } = await renderApp({ store, seed: DEFAULT_MESSAGES });
+    await openThread(user, 'Quarterly invoice');
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('local database unavailable');
+    expect(screen.queryByText('Loading…')).toBeNull();
+
+    store.getThreadFailWith = undefined;
+    await user.click(within(alert).getByRole('button', { name: 'Retry' }));
+    expect(await screen.findAllByRole('article')).toHaveLength(2);
+  });
+
+  it('a thread with no stored messages shows the empty copy, not an endless spinner', async () => {
+    const store = new FlakyStore();
+    const { user } = await renderApp({ store, seed: DEFAULT_MESSAGES });
+    store.returnEmptyThreads = true;
+    await openThread(user, 'Quarterly invoice');
+
+    expect(await screen.findByText('no messages')).toBeInTheDocument();
+    expect(screen.queryByText('Loading…')).toBeNull();
   });
 });
 

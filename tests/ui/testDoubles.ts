@@ -9,9 +9,11 @@ import { FakeProvider, type FakeProviderFixtures } from '../../src/providers/Fak
 import type {
   ListThreadsOptions,
   ProviderCapabilities,
+  SendResult,
   ThreadPage,
 } from '../../src/providers/MailProvider';
-import type { MailProviderError, Message, Tag } from '../../src/providers/model';
+import type { Draft, MailProviderError, Message, Tag } from '../../src/providers/model';
+import { FakeMailStore } from '../../src/store/FakeMailStore';
 import { FakeIntelligence } from '../../src/intelligence/FakeIntelligence';
 import {
   MailIntelligenceError,
@@ -21,13 +23,33 @@ import {
   type ThreadDigest,
 } from '../../src/intelligence/MailIntelligence';
 
-/** FakeProvider whose listThreads can be switched to reject (offline/auth stories). */
+/** FakeProvider whose listThreads/send can be switched to reject (offline/auth/send-failure stories). */
 export class FlakyProvider extends FakeProvider {
   failWith?: MailProviderError;
+  sendFailWith?: MailProviderError;
 
   override async listThreads(tagId: string, opts?: ListThreadsOptions): Promise<ThreadPage> {
     if (this.failWith) throw this.failWith;
     return super.listThreads(tagId, opts);
+  }
+
+  override async send(draft: Draft): Promise<SendResult> {
+    if (this.sendFailWith) throw this.sendFailWith;
+    return super.send(draft);
+  }
+}
+
+/** FakeMailStore whose getThread can reject or come back empty (thread-view error/empty stories). */
+export class FlakyStore extends FakeMailStore {
+  /** getThread rejects with this until cleared. */
+  getThreadFailWith?: Error;
+  /** When true, getThread resolves [] as if the bodies were never synced. */
+  returnEmptyThreads = false;
+
+  override async getThread(threadId: string): Promise<Message[]> {
+    if (this.getThreadFailWith) throw this.getThreadFailWith;
+    if (this.returnEmptyThreads) return [];
+    return super.getThread(threadId);
   }
 }
 

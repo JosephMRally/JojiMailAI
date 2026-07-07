@@ -17,10 +17,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PluginHost } from '../../src/plugins/PluginHost';
 import { InMemoryPluginSettings } from '../../src/plugins/PluginSettings';
 import { FakePlugin } from '../../src/plugins/FakePlugin';
-import type { Draft } from '../../src/providers/model';
+import { MailProviderError, type Draft } from '../../src/providers/model';
 import { renderApp } from './harness';
-import { DEFAULT_MESSAGES, makeMessage } from './fixtures';
-import { RejectingIntelligence } from './testDoubles';
+import { DEFAULT_MESSAGES, TAGS, makeMessage } from './fixtures';
+import { FlakyProvider, RejectingIntelligence } from './testDoubles';
 
 afterEach(cleanup);
 
@@ -57,6 +57,54 @@ describe('story: compose submits a Draft via provider.send() and confirms with t
       ),
     );
     expect(await screen.findByText(/fake-sent-m1/)).toBeInTheDocument();
+  });
+});
+
+describe('story: send failures show error copy keyed off MailProviderError.code', () => {
+  async function fillAndSend(user: Awaited<ReturnType<typeof renderApp>>['user']): Promise<void> {
+    await user.click(await screen.findByRole('button', { name: 'Compose' }));
+    await user.type(screen.getByRole('textbox', { name: 'To' }), 'dana@example.com');
+    await user.type(screen.getByRole('textbox', { name: 'Subject' }), 'Hello');
+    await user.type(screen.getByRole('textbox', { name: 'Body' }), 'Hi there');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+  }
+
+  it('a NETWORK send failure offers a Retry that resends the same draft and recovers', async () => {
+    const provider = new FlakyProvider({ tags: TAGS, messages: DEFAULT_MESSAGES });
+    provider.sendFailWith = new MailProviderError('NETWORK', 'bridge unreachable');
+    const { user } = await renderApp({ provider, seed: DEFAULT_MESSAGES });
+    const send = vi.spyOn(provider, 'send');
+
+    await fillAndSend(user);
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('bridge unreachable');
+
+    provider.sendFailWith = undefined;
+    await user.click(within(alert).getByRole('button', { name: 'Retry' }));
+
+    expect(await screen.findByText(/fake-sent-m1/)).toBeInTheDocument();
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send).toHaveBeenLastCalledWith(
+      expect.objectContaining({ to: ['dana@example.com'], subject: 'Hello', bodyPlain: 'Hi there' }),
+    );
+  });
+
+  it("an AUTH_REQUIRED send failure shows the error's own message and no retry button", async () => {
+    const provider = new FlakyProvider({ tags: TAGS, messages: DEFAULT_MESSAGES });
+    provider.sendFailWith = new MailProviderError(
+      'AUTH_REQUIRED',
+      'Reconnect Gmail: run the bridge once and complete Google sign-in.',
+    );
+    const { user } = await renderApp({ provider, seed: DEFAULT_MESSAGES });
+
+    await fillAndSend(user);
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain(
+      'Reconnect Gmail: run the bridge once and complete Google sign-in.',
+    );
+    expect(within(alert).queryByRole('button', { name: 'Retry' })).toBeNull();
   });
 });
 
