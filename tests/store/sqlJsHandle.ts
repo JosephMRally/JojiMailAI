@@ -4,7 +4,6 @@
  * (user-stories/typescript_mail_store.md). SqliteMailStore receives this
  * handle by injection, exactly as the production adapter would be injected.
  */
-import path from 'node:path';
 import initSqlJs, { type Database } from 'sql.js';
 import type { DbHandle, DbRow, DbValue } from '../../src/store/DbHandle';
 
@@ -15,7 +14,10 @@ export interface SqlJsHandle extends DbHandle {
 
 export async function createSqlJsHandle(): Promise<SqlJsHandle> {
   const SQL = await initSqlJs({
-    locateFile: (file: string) => path.resolve(process.cwd(), 'node_modules/sql.js/dist', file),
+    // Resolve the wasm binary relative to this file — no node:path/process,
+    // so the test suite stays tsc-clean without @types/node.
+    locateFile: (file: string) =>
+      new URL(`../../node_modules/sql.js/dist/${file}`, import.meta.url).pathname,
   });
   const db = new SQL.Database();
   return {
