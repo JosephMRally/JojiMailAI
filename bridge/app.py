@@ -225,6 +225,12 @@ class ModifyRequest(BaseModel):
         return self
 
 
+class ThreadModifyRequest(BaseModel):
+    # Thread-scoped triage matching the MailProvider interface's
+    # archive(threadId)/trash(threadId); the closed set stays label-only.
+    action: Literal["archive", "trash"]
+
+
 # --- app factory -----------------------------------------------------------------
 
 
@@ -378,6 +384,23 @@ def create_app(
                 msg.remove_label("INBOX")
             elif body.action == "trash":
                 msg.trash()
+        return {"status": "ok"}
+
+    @app.post("/threads/{thread_id}/modify")
+    def modify_thread(thread_id: str, body: ThreadModifyRequest):
+        # Thread triage touches every message in the thread — still only
+        # Gmail label (tag) changes, and trash stays reversible in Gmail.
+        with _gmail_errors():
+            g = gmail()
+            thread = (
+                g.service.users().threads().get(userId="me", id=thread_id).execute()
+            )
+            refs = [{"id": ref["id"]} for ref in thread.get("messages", [])]
+            for msg in _hydrate(g, refs):
+                if body.action == "archive":
+                    msg.remove_label("INBOX")
+                else:
+                    msg.trash()
         return {"status": "ok"}
 
     return app
