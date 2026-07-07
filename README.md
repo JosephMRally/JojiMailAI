@@ -33,12 +33,13 @@ makes local search instant without ever being able to miss a real match.
 
 ## Project status
 
-**Building from spec.** Components 1-6 of the build order are implemented and tested —
-the provider interface (`src/providers/`), the Gmail bridge (`bridge/`), the
+**Building from spec.** All seven components of the build order are implemented and
+tested — the provider interface (`src/providers/`), the Gmail bridge (`bridge/`), the
 `GmailProvider` proxy, the self-hosted AI layer (`src/intelligence/`), the local
-store with Bloom-filter search (`src/store/`), and the plug-in system
-(`src/plugins/`). The UI/shell is still spec-only. Every component is generated from
-its spec:
+store with Bloom-filter search (`src/store/`), the plug-in system (`src/plugins/`),
+and the React UI with its composition root and Capacitor shell (`src/ui/`,
+`src/composition.ts`, `src/main.tsx`, `capacitor.config.ts`). Every component is
+generated from its spec:
 
 | File | Role |
 |------|------|
