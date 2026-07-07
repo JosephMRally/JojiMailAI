@@ -81,8 +81,11 @@ interface WireSendResult {
   message_id: string;
 }
 
-/** The closed action set of the bridge's POST /messages/{id}/modify. */
-type ModifyAction = 'mark_read' | 'mark_unread' | 'add_tag' | 'remove_tag' | 'archive' | 'trash';
+/** The message-scoped actions of the bridge's POST /messages/{id}/modify. */
+type MessageModifyAction = 'mark_read' | 'mark_unread' | 'add_tag' | 'remove_tag';
+
+/** The thread-scoped actions of the bridge's POST /threads/{id}/modify. */
+type ThreadModifyAction = 'archive' | 'trash';
 
 const ERROR_CODES: readonly MailProviderErrorCode[] = [
   'AUTH_REQUIRED',
@@ -203,20 +206,25 @@ export class GmailProvider implements MailProvider {
   }
 
   archive(threadId: string): Promise<void> {
-    return this.modify(threadId, 'archive');
+    return this.modifyThread(threadId, 'archive');
   }
 
   trash(threadId: string): Promise<void> {
-    return this.modify(threadId, 'trash');
+    return this.modifyThread(threadId, 'trash');
   }
 
   // --- HTTP plumbing ---------------------------------------------------------
 
-  private async modify(id: string, action: ModifyAction, tagId?: string): Promise<void> {
-    await this.post(`/messages/${encodeURIComponent(id)}/modify`, {
+  private async modify(messageId: string, action: MessageModifyAction, tagId?: string): Promise<void> {
+    await this.post(`/messages/${encodeURIComponent(messageId)}/modify`, {
       action,
       tag_id: tagId,
     });
+  }
+
+  /** Thread-scoped triage: the bridge applies it to every message in the thread. */
+  private async modifyThread(threadId: string, action: ThreadModifyAction): Promise<void> {
+    await this.post(`/threads/${encodeURIComponent(threadId)}/modify`, { action });
   }
 
   private post<T>(path: string, body: Record<string, unknown>): Promise<T> {
