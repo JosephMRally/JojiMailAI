@@ -4,8 +4,9 @@
  * - each interface method maps to exactly one bridge endpoint:
  *   listTags→GET /tags, listThreads→GET /threads?tag=, getThread→GET
  *   /threads/{id}, getMessage→GET /messages/{id}, send→POST /messages/send,
- *   markRead/markUnread/addTag/removeTag/archive/trash→POST
- *   /messages/{id}/modify;
+ *   markRead/markUnread/addTag/removeTag→POST /messages/{id}/modify,
+ *   archive/trash→POST /threads/{id}/modify (thread-scoped, matching the
+ *   interface's archive(threadId)/trash(threadId));
  * - pageToken passes through to the bridge verbatim and next_page_token
  *   comes back opaquely as nextPageToken;
  * - send(draft) POSTs to, cc, bcc, subject, bodyPlain and resolves with the
@@ -104,48 +105,50 @@ describe('story: each interface method maps to exactly one bridge endpoint', () 
   const modifyCases: Array<{
     name: string;
     call: (provider: GmailProvider) => Promise<void>;
-    id: string;
+    path: string;
     body: Record<string, string>;
   }> = [
     {
       name: 'markRead → POST /messages/{id}/modify {action: mark_read}',
       call: (p) => p.markRead('m1'),
-      id: 'm1',
+      path: '/messages/m1/modify',
       body: { action: 'mark_read' },
     },
     {
       name: 'markUnread → POST /messages/{id}/modify {action: mark_unread}',
       call: (p) => p.markUnread('m1'),
-      id: 'm1',
+      path: '/messages/m1/modify',
       body: { action: 'mark_unread' },
     },
     {
       name: 'addTag → POST /messages/{id}/modify {action: add_tag, tag_id}',
       call: (p) => p.addTag('m1', 'work'),
-      id: 'm1',
+      path: '/messages/m1/modify',
       body: { action: 'add_tag', tag_id: 'work' },
     },
     {
       name: 'removeTag → POST /messages/{id}/modify {action: remove_tag, tag_id}',
       call: (p) => p.removeTag('m1', 'work'),
-      id: 'm1',
+      path: '/messages/m1/modify',
       body: { action: 'remove_tag', tag_id: 'work' },
     },
     {
-      name: 'archive → POST /messages/{id}/modify {action: archive}',
+      // Thread-scoped: a multi-message thread archives whole, not just the
+      // message sharing the thread's id.
+      name: 'archive → POST /threads/{id}/modify {action: archive}',
       call: (p) => p.archive('t1'),
-      id: 't1',
+      path: '/threads/t1/modify',
       body: { action: 'archive' },
     },
     {
-      name: 'trash → POST /messages/{id}/modify {action: trash}',
+      name: 'trash → POST /threads/{id}/modify {action: trash}',
       call: (p) => p.trash('t1'),
-      id: 't1',
+      path: '/threads/t1/modify',
       body: { action: 'trash' },
     },
   ];
 
-  for (const { name, call, id, body } of modifyCases) {
+  for (const { name, call, path, body } of modifyCases) {
     it(name, async () => {
       const { mock, provider } = makeProvider();
       mock.respondJson({ status: 'ok' });
@@ -153,7 +156,7 @@ describe('story: each interface method maps to exactly one bridge endpoint', () 
       await expect(call(provider)).resolves.toBeUndefined();
 
       expect(mock.calls).toHaveLength(1);
-      expect(new URL(mock.calls[0].url).pathname).toBe(`/messages/${id}/modify`);
+      expect(new URL(mock.calls[0].url).pathname).toBe(path);
       expect(mock.calls[0].init?.method).toBe('POST');
       expect(contentTypeOf(mock.calls[0])).toBe('application/json');
       expect(parseBody(mock.calls[0])).toStrictEqual(body);
