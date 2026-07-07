@@ -4,6 +4,8 @@
   to/subject/body_plain, returns the sent message's message_id
 - POST /messages/{message_id}/modify with a closed action set; tag_id
   required for tag actions and rejected otherwise
+- POST /threads/{thread_id}/modify with {action} from archive | trash,
+  applied to every message in the thread; 404 for an unknown thread
 - all mutations expressed as Gmail label (tag) changes, never container moves
 - trash only moves mail to Gmail's Trash; no endpoint deletes permanently
 """
@@ -12,7 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from bridge.app import create_app
-from fixtures import BOB, CAROL, DAVE, FakeGmail, FakeMessage
+from fixtures import BOB, CAROL, DAVE, FakeGmail, FakeMessage, inbox_gmail
 
 
 def make_client(gmail):
@@ -21,6 +23,21 @@ def make_client(gmail):
 
 def modify(gmail, message_id, payload):
     return make_client(gmail).post(f"/messages/{message_id}/modify", json=payload)
+
+
+def modify_thread(gmail, thread_id, payload):
+    return make_client(gmail).post(f"/threads/{thread_id}/modify", json=payload)
+
+
+def make_two_message_thread():
+    """A two-message thread, both carrying INBOX, reachable via threads().get."""
+    m1 = FakeMessage(id="m1", thread_id="t1", label_ids=["INBOX", "UNREAD"])
+    m3 = FakeMessage(id="m3", thread_id="t1", label_ids=["INBOX"])
+    gmail = FakeGmail(
+        messages=[m1, m3],
+        thread_gets={"t1": {"id": "t1", "messages": [{"id": "m1"}, {"id": "m3"}]}},
+    )
+    return gmail, m1, m3
 
 
 # --- POST /messages/send -------------------------------------------------------
@@ -158,6 +175,45 @@ def test_story_modify_rejects_tag_id_on_non_tag_actions(action):
     assert msg.added_labels == []
     assert msg.removed_labels == []
     assert msg.trash_calls == 0
+
+
+# --- POST /threads/{thread_id}/modify ---------------------------------------------
+
+
+def test_story_thread_archive_removes_inbox_from_every_message_in_the_thread():
+    gmail, m1, m3 = make_two_message_thread()
+    response = modify_thread(gmail, "t1", {"action": "archive"})
+    assert response.status_code == 200
+    assert m1.removed_labels == ["INBOX"]  # a label change on every message...
+    assert m3.removed_labels == ["INBOX"]
+    assert m1.added_labels == [] and m3.added_labels == []  # ...never a move
+    assert m1.trash_calls == 0 and m3.trash_calls == 0
+
+
+def test_story_thread_trash_trashes_every_message_in_the_thread():
+    gmail, m1, m3 = make_two_message_thread()
+    response = modify_thread(gmail, "t1", {"action": "trash"})
+    assert response.status_code == 200
+    assert m1.trash_calls == 1 and m3.trash_calls == 1  # Gmail Trash only
+    assert m1.added_labels == [] and m3.added_labels == []
+    assert m1.removed_labels == [] and m3.removed_labels == []
+
+
+def test_story_thread_modify_unknown_thread_maps_to_not_found():
+    response = modify_thread(inbox_gmail(), "no-such-thread", {"action": "archive"})
+    assert response.status_code == 404
+    assert response.json()["code"] == "NOT_FOUND"
+
+
+@pytest.mark.parametrize("action", ["mark_read", "add_tag", "delete", ""])
+def test_story_thread_modify_rejects_actions_outside_archive_trash(action):
+    gmail, m1, m3 = make_two_message_thread()
+    response = modify_thread(gmail, "t1", {"action": action})
+    assert response.status_code == 422
+    for msg in (m1, m3):
+        assert msg.added_labels == []
+        assert msg.removed_labels == []
+        assert msg.trash_calls == 0
 
 
 def test_story_no_endpoint_deletes_permanently():
