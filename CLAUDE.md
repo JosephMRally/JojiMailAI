@@ -24,6 +24,7 @@ TDD Progress (<component>):
 - [ ] Red: tests derived from the spec's user stories, run and observed failing
 - [ ] Green: minimum implementation, full suite passing
 - [ ] Refactor: cleaned up, suite still green
+- [ ] Update documents to be consistent with the code, include `sequence diagrams` and `flow diagrams` both as PNG file types.
 - [ ] Commit
 ```
 
