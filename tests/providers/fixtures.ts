@@ -25,5 +25,7 @@ export const D_M6 = 1736079600000;
 export const ALL_INBOX_THREAD_IDS = ['t1', 't2', 't3', 't4', 't5'];
 
 export function makeFixtures(): ProviderFixtures {
-  return comprehensiveFixtures as ProviderFixtures;
+  // Deep-copy: callers may mutate what they get, and the JSON import is a
+  // module-level singleton shared by every test in the worker.
+  return structuredClone(comprehensiveFixtures) as ProviderFixtures;
 }

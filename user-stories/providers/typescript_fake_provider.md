@@ -26,6 +26,6 @@ Status: built — `src/providers/FakeProvider.ts`. This skill documents required
 | engineer | fixture data to use fake addresses only (`example.com`) | tests never touch or leak a real account |
 | engineer | vitest as the test runner with no network, DOM, or filesystem access | tests are deterministic and reproducible |
 
-Coverage note: a few story clauses describe implemented behavior not yet pinned by `tests/providers/` — the invalid-page-token `PROVIDER_ERROR` path, non-default options, the returned newest-first ordering, defensive copying, and the exact sent-message id format. They are the first Red candidates when this spec is next re-executed.
+Every story clause above is pinned by `tests/providers/` (`FakeProvider.test.ts` for the shared contract, `fake-provider.test.ts` for fake-specific behavior: fixture loading, invalid page tokens, default page size, returned ordering, non-default options, sent-id format and clock, defensive copying).
 
 ## Input
