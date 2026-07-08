@@ -16,6 +16,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { composeApp, GMAIL_ACCOUNT_ID } from '../../src/composition';
+import { FakeProvider } from '../../src/providers/FakeProvider';
 import { GmailProvider } from '../../src/providers/gmail/GmailProvider';
 import { LocalIntelligence } from '../../src/intelligence/LocalIntelligence';
 import { NoOpIntelligence } from '../../src/intelligence/NoOpIntelligence';
@@ -124,6 +125,17 @@ describe('story: the composition root registers the provider named by VITE_MAIL_
     expect(services.registry.resolve(GMAIL_ACCOUNT_ID)).toBeInstanceOf(GmailProvider);
   });
 
+  it('VITE_MAIL_PROVIDER=fake registers the FakeProvider under the fake account id', () => {
+    const { handle } = recordingDbHandle();
+    const services = composeApp({
+      env: { VITE_MAIL_PROVIDER: 'fake' },
+      dbHandle: handle,
+      settingsStorage: memoryStorage(),
+    });
+    expect(services.registry.listAccounts()).toEqual(['fake']);
+    expect(services.registry.resolve('fake')).toBeInstanceOf(FakeProvider);
+  });
+
   it('an unset VITE_MAIL_PROVIDER defaults to gmail (dev mode)', () => {
     const { handle } = recordingDbHandle();
     const services = composeApp({ env: {}, dbHandle: handle, settingsStorage: memoryStorage() });
@@ -138,7 +150,7 @@ describe('story: the composition root registers the provider named by VITE_MAIL_
         dbHandle: handle,
         settingsStorage: memoryStorage(),
       }),
-    ).toThrow(/aol.*gmail|gmail.*aol/s);
+    ).toThrow(/(?=.*aol)(?=.*gmail)(?=.*fake)/s);
   });
 });
 
