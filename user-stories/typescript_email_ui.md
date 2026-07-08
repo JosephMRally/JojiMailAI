@@ -5,7 +5,8 @@ Create the web UI under `src/ui/` (React + Vite + TypeScript) and the Capacitor 
 ## User Stories
 Following agile conventions, we want our user stories to be in the following format: `As a <actor> I want <requirement> so that <description>` will be written in shorthand as `actor | requirement | description`. User stories form the basis of tests and code.
 
-actor | requirement | description
+| actor | requirement | description |
+|-------|-------------|-------------|
 engineer | every UI file to import mail types only from `src/providers/`, AI only from `src/intelligence/MailIntelligence.ts`, storage only from `src/store/MailStore.ts`, and plug-ins only from `src/plugins/MailPlugin.ts`/`PluginHost.ts` — never a concrete class — enforced by a test or lint rule | all four boundaries hold and new platforms, AI backends, storage engines, or plug-ins need zero UI changes
 engineer | UI tests to run against the in-memory `FakeProvider` from `typescript_mail_provider.md`, `FakeIntelligence` from `typescript_mail_intelligence.md`, `FakeMailStore` from `typescript_mail_store.md`, and `FakePlugin` from `typescript_plugin_system.md`, seeded with fixture data using fake addresses | tests are deterministic, reproducible, and touch no bridge, network, AI API, or database
 engineer | vitest + React Testing Library, asserting on what the user sees (roles, text) rather than component internals | tests survive refactors and match the user stories they encode
