@@ -27,7 +27,9 @@ and Test Driven Development (TDD: red->green->refactor) when generating code. Te
 email addresses; use synthetic fixture data modeled on the shape of real
 `simplegmail` `Message` objects (Python side) and on the shared wire schema
 (TypeScript side). Follow pytest convention for Python tests and vitest
-convention for TypeScript tests.
+convention for TypeScript unit tests; user-facing flows are additionally
+verified end-to-end with Playwright against the seeded fake build (see
+CLAUDE.md "Running tests" — Playwright is the default for UI behavior).
 
 This file and every spec follow Anthropic's [skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)
 — progressive disclosure and workflows with feedback loops in particular.

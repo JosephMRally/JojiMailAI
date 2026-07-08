@@ -136,6 +136,18 @@ describe('story: the composition root registers the provider named by VITE_MAIL_
     expect(services.registry.resolve('fake')).toBeInstanceOf(FakeProvider);
   });
 
+  it('VITE_MAIL_PROVIDER=fake seeds the FakeProvider from the fakeFixtures option', async () => {
+    const { handle } = recordingDbHandle();
+    const services = composeApp({
+      env: { VITE_MAIL_PROVIDER: 'fake' },
+      dbHandle: handle,
+      settingsStorage: memoryStorage(),
+      fakeFixtures: { tags: [{ tagId: 'demo-inbox', name: 'Inbox' }], messages: [] },
+    });
+    const tags = await services.registry.resolve('fake').listTags();
+    expect(tags.map((t) => t.tagId)).toEqual(['demo-inbox']);
+  });
+
   it('an unset VITE_MAIL_PROVIDER defaults to gmail (dev mode)', () => {
     const { handle } = recordingDbHandle();
     const services = composeApp({ env: {}, dbHandle: handle, settingsStorage: memoryStorage() });

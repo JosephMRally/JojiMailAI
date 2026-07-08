@@ -8,11 +8,28 @@
 import { CapacitorSQLite, SQLiteConnection } from '@capacitor-community/sqlite';
 import { Capacitor } from '@capacitor/core';
 import { createRoot } from 'react-dom/client';
-import { composeApp } from './composition';
+import { composeApp, selectedProviderId, type EnvLike } from './composition';
+import type { FakeProviderFixtures } from './providers/FakeProvider';
 import { CapacitorDbHandle } from './store/CapacitorDbHandle';
+import { loadFakeFixtures } from './testing/FakeProviderFixtures';
 import { App } from './ui/App';
 
 const DB_NAME = 'jojimail';
+const FAKE_FIXTURES_PATH = '/fixtures/fake-provider.json';
+
+/**
+ * The fake build's demo mailbox, editable as plain JSON in public/fixtures/.
+ * A missing or unreadable file degrades to an empty mailbox — never a crash.
+ */
+async function loadDemoFixtures(): Promise<FakeProviderFixtures | undefined> {
+  if (selectedProviderId(import.meta.env as unknown as EnvLike) !== 'fake') return undefined;
+  try {
+    return await loadFakeFixtures(FAKE_FIXTURES_PATH);
+  } catch (error) {
+    console.warn(`Fake demo mailbox unavailable (${FAKE_FIXTURES_PATH}); starting empty.`, error);
+    return undefined;
+  }
+}
 
 /**
  * On web, @capacitor-community/sqlite delegates to the jeep-sqlite custom
@@ -39,6 +56,7 @@ async function start(): Promise<void> {
   const services = composeApp({
     dbHandle: new CapacitorDbHandle(connection),
     settingsStorage: window.localStorage,
+    fakeFixtures: await loadDemoFixtures(),
   });
 
   const container = document.getElementById('root');

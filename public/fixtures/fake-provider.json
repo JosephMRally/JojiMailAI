@@ -1,0 +1,62 @@
+{
+  "tags": [
+    { "tagId": "inbox", "name": "Inbox", "unreadCount": 1 },
+    { "tagId": "starred", "name": "Starred" },
+    { "tagId": "sent", "name": "Sent" },
+    { "tagId": "trash", "name": "Trash" }
+  ],
+  "messages": [
+    {
+      "messageId": "demo-m1",
+      "threadId": "demo-t1",
+      "from": "dana@example.com",
+      "to": ["me@example.com"],
+      "cc": [],
+      "bcc": [],
+      "subject": "Company picnic planning",
+      "date": 1767261600000,
+      "bodyPlain": "Shall we do the picnic on the 14th? The park by the lake has open slots.",
+      "unread": false,
+      "tagIds": ["inbox", "starred"]
+    },
+    {
+      "messageId": "demo-m2",
+      "threadId": "demo-t1",
+      "from": "me@example.com",
+      "to": ["dana@example.com"],
+      "cc": [],
+      "bcc": [],
+      "subject": "Re: Company picnic planning",
+      "date": 1767268800000,
+      "bodyPlain": "The 14th works — booking the lake spot now.",
+      "unread": false,
+      "tagIds": ["inbox", "sent"]
+    },
+    {
+      "messageId": "demo-m3",
+      "threadId": "demo-t2",
+      "from": "carlos@example.com",
+      "to": ["me@example.com"],
+      "cc": [],
+      "bcc": [],
+      "subject": "Quarterly numbers are in",
+      "date": 1767355200000,
+      "bodyPlain": "Revenue is up 8% quarter over quarter. Full deck attached tomorrow.",
+      "unread": true,
+      "tagIds": ["inbox"]
+    },
+    {
+      "messageId": "demo-m4",
+      "threadId": "demo-t3",
+      "from": "me@example.com",
+      "to": ["ravi@example.com"],
+      "cc": [],
+      "bcc": [],
+      "subject": "Notes from Tuesday",
+      "date": 1767182400000,
+      "bodyPlain": "Sending over the notes from Tuesday's sync before I forget.",
+      "unread": false,
+      "tagIds": ["sent"]
+    }
+  ]
+}

@@ -8,3 +8,5 @@ coverage/
 .claude/
 tsconfig.tsbuildinfo
 .env.local
+test-results/
+playwright-report/

@@ -25,7 +25,7 @@ import { NoOpIntelligence } from './intelligence/NoOpIntelligence';
 import type { MailPlugin } from './plugins/MailPlugin';
 import { PluginHost } from './plugins/PluginHost';
 import { LocalStoragePluginSettings, type StorageLike } from './plugins/PluginSettings';
-import { FakeProvider } from './providers/FakeProvider';
+import { FakeProvider, type FakeProviderFixtures } from './providers/FakeProvider';
 import { GmailProvider } from './providers/gmail/GmailProvider';
 import { ProviderRegistry } from './providers/ProviderRegistry';
 import type { DbHandle } from './store/DbHandle';
@@ -35,7 +35,12 @@ import { SqliteMailStore } from './store/SqliteMailStore';
 /** The account id the bundled Gmail provider registers under. */
 export const GMAIL_ACCOUNT_ID = 'gmail';
 
-type EnvLike = Record<string, string | undefined>;
+export type EnvLike = Record<string, string | undefined>;
+
+/** The provider id VITE_MAIL_PROVIDER selects; gmail when unset (dev mode). */
+export function selectedProviderId(env: EnvLike): string {
+  return (env.VITE_MAIL_PROVIDER ?? '').trim() || 'gmail';
+}
 
 export interface CompositionOptions {
   /** Vite env; injectable so composing is testable without ambient state. */
@@ -52,6 +57,11 @@ export interface CompositionOptions {
   settingsStorage: StorageLike;
   /** Bundled plug-ins to register into the host. */
   plugins?: MailPlugin[];
+  /**
+   * Demo mailbox for the fake build (loaded by the app entry from
+   * public/fixtures/fake-provider.json). Omitted, the fake starts empty.
+   */
+  fakeFixtures?: FakeProviderFixtures;
 }
 
 export interface AppServices {
@@ -96,10 +106,10 @@ function registerSelectedProvider(
         GMAIL_ACCOUNT_ID,
         new GmailProvider({ getAccessToken: options.gmailAuth ?? defaultGmailAuth(env) }),
       ),
-    fake: () => registry.register('fake', new FakeProvider()),
+    fake: () => registry.register('fake', new FakeProvider(options.fakeFixtures)),
   };
 
-  const selected = (env.VITE_MAIL_PROVIDER ?? '').trim() || 'gmail';
+  const selected = selectedProviderId(env);
   const register = known[selected];
   if (!register) {
     throw new Error(

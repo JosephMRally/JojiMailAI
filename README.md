@@ -230,11 +230,22 @@ an hour; refresh and restart when calls start failing with AUTH_REQUIRED.
 ## Running tests
 
 ```
-npx vitest run                                 # all TypeScript layers (providers, intelligence, store, plugins, UI)
+npx playwright test                            # end-to-end: real browser over the seeded fake build
+npx vitest run                                 # unit: all TypeScript layers (providers, intelligence, store, plugins, UI)
 .venv/bin/python -m pytest bridge/tests/ -q   # deprecated bridge (kept for reference)
 ```
 
-Tests are fully mocked — nothing touches a real account, an OAuth flow, or the network.
+Unit tests are fully mocked — nothing touches a real account, an OAuth flow, or the
+network. The end-to-end suite starts its own dev server with `VITE_MAIL_PROVIDER=fake`
+and drives the demo mailbox in a real (headless) browser — still no real account.
+One-time setup for it: `npx playwright install chromium`.
+
+### The demo mailbox
+
+A `fake` build starts with the demo mailbox in `public/fixtures/fake-provider.json`
+(tags + messages, all `@example.com`). Edit that file to change what the demo shows —
+plain JSON, no code edit or rebuild; reload the browser to see it. If the file is
+missing or malformed the app logs a warning and starts with an empty mailbox.
 
 ## Adding a mail platform
 
