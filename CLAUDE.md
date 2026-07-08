@@ -44,6 +44,17 @@ npx vitest run                                 # all TypeScript layers (provider
 
 Use `.venv/bin/python` — pytest is installed in the project venv, not globally.
 
+## Change order: always follow this sequence
+
+When implementing a feature or fixing a behavior:
+
+1. **Skills** — Update `SKILL.md` or a `user-stories/*.md` spec first. Change the spec before changing code. If requirements are unclear, nail them down in the spec.
+2. **User stories** — Refine or add user-story requirements in the relevant `user-stories/*.md` file. The spec is the source of truth; tests and code follow from it.
+3. **Tests** — Write tests that derive from the spec's user stories. Run and observe them fail (Red). Never edit tests and code in the same step.
+4. **Code** — Write minimum implementation to make tests pass (Green). Refactor on green, keeping tests passing.
+
+This order — spec → user stories → tests → code — ensures the spec drives all downstream work, tests validate the spec's requirements, and code changes are safe.
+
 ## Other rules
 
 - Do not run the app or the bridge against the live mailbox unless explicitly asked — "do not execute" in the specs refers to live runs; running pytest/vitest is always fine.
