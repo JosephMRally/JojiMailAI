@@ -144,6 +144,7 @@ starts.
 | Provider | ID | Status | Platform/Protocol |
 |----------|----|---------|--------------------|
 | Gmail | `gmail` | ✅ Implemented | Google Gmail API v1 (native OAuth) |
+| Fake (in-memory) | `fake` | 🧪 Testing | In-memory reference implementation (tests & dev) |
 | Yahoo | `yahoo` | 📋 Planned | IMAP/SMTP |
 | Microsoft 365 | `microsoft` | 📋 Planned | Microsoft Graph API |
 
