@@ -136,7 +136,7 @@ Startup:
 ### 1. Start the bridge
 
 ```
-.venv/bin/python bridge/app.py
+uv run python bridge/app.py
 ```
 
 The bridge talks to Gmail itself; the app talks only to the bridge (localhost, port
