@@ -1,12 +1,14 @@
 /**
  * Error-normalization tests for the GmailProvider proxy
- * (user-stories/typescript_gmail_proxy.md):
- * - bridge error bodies {code, message} are rethrown as MailProviderError
- *   with the same code;
+ * (user-stories/providers/typescript_gmail_proxy.md):
+ * - Gmail API error responses map by status to MailProviderError: 401/403 →
+ *   AUTH_REQUIRED, 404 → NOT_FOUND, 429 → RATE_LIMITED, other 4xx/5xx →
+ *   PROVIDER_ERROR carrying Gmail's error.message when present;
  * - transport failures (fetch rejection, non-JSON body) throw
- *   MailProviderError('NETWORK');
- * - an AUTH_REQUIRED error carries a message telling the human to start the
- *   bridge and complete the Google sign-in in a browser;
+ *   MailProviderError('NETWORK'); a rejecting getAccessToken throws
+ *   MailProviderError('AUTH_REQUIRED');
+ * - an AUTH_REQUIRED error tells the human to sign in with Google via the
+ *   app's OAuth flow;
  * - no retry, caching, or offline-queue logic in v1, documented as a
  *   deliberate omission.
  */
@@ -14,7 +16,7 @@ import { describe, expect, it } from 'vitest';
 import { MailProviderError } from '../../src/providers/model';
 import { GmailProvider } from '../../src/providers/gmail/GmailProvider';
 import { createFetchMock } from './fetchMock';
-import { wireError, wireTags } from './wireFixtures';
+import { gmailError, gmailLabels } from './wireFixtures';
 
 const gmailSources = import.meta.glob('/src/providers/gmail/*.ts', {
   eager: true,
@@ -24,44 +26,43 @@ const gmailSources = import.meta.glob('/src/providers/gmail/*.ts', {
 
 function makeProvider() {
   const mock = createFetchMock();
-  const provider = new GmailProvider({ fetchFn: mock.fn });
+  const provider = new GmailProvider({ getAccessToken: async () => 'tok', fetchFn: mock.fn });
   return { mock, provider };
 }
 
-describe('story: bridge error bodies {code, message} are rethrown as MailProviderError with the same code', () => {
-  const cases: Array<[code: 'NOT_FOUND' | 'RATE_LIMITED' | 'PROVIDER_ERROR', status: number]> = [
-    ['NOT_FOUND', 404],
-    ['RATE_LIMITED', 429],
-    ['PROVIDER_ERROR', 502],
+describe('story: Gmail API error responses map by HTTP status to MailProviderError', () => {
+  const cases: Array<[status: number, code: 'AUTH_REQUIRED' | 'NOT_FOUND' | 'RATE_LIMITED' | 'PROVIDER_ERROR']> = [
+    [401, 'AUTH_REQUIRED'],
+    [403, 'AUTH_REQUIRED'],
+    [404, 'NOT_FOUND'],
+    [429, 'RATE_LIMITED'],
+    [500, 'PROVIDER_ERROR'],
+    [502, 'PROVIDER_ERROR'],
   ];
 
-  for (const [code, status] of cases) {
-    it(`a ${status} {code: ${code}} body becomes MailProviderError('${code}') with the bridge message`, async () => {
+  for (const [status, code] of cases) {
+    it(`an HTTP ${status} becomes MailProviderError('${code}')`, async () => {
       const { mock, provider } = makeProvider();
-      mock.respondJson(wireError(code, `bridge says: ${code}`), status);
+      mock.respondJson(gmailError(status, `gmail says: ${status}`), status);
 
       const error = await provider.getMessage('m1').catch((e: unknown) => e);
       expect(error).toBeInstanceOf(MailProviderError);
       expect((error as MailProviderError).code).toBe(code);
-      expect((error as MailProviderError).message).toContain(`bridge says: ${code}`);
     });
   }
-});
 
-describe('story: a bridge request-validation error keeps its diagnostic message', () => {
-  it('a 422 {code, message} body is rethrown with the message preserved, never collapsed', async () => {
+  it("Gmail's error.message is preserved on PROVIDER_ERROR, never collapsed", async () => {
     const { mock, provider } = makeProvider();
-    mock.respondJson({ code: 'PROVIDER_ERROR', message: 'page_size: must be <= 100' }, 422);
+    mock.respondJson(gmailError(500, 'Backend Error: quota exceeded for user'), 500);
 
-    const error = await provider.listThreads('inbox', { pageSize: 200 }).catch((e: unknown) => e);
+    const error = await provider.listTags().catch((e: unknown) => e);
     expect(error).toBeInstanceOf(MailProviderError);
-    expect((error as MailProviderError).code).toBe('PROVIDER_ERROR');
-    expect((error as MailProviderError).message).toContain('page_size');
+    expect((error as MailProviderError).message).toContain('quota exceeded');
   });
 });
 
 describe("story: transport failures throw MailProviderError('NETWORK')", () => {
-  it('a rejected fetch (bridge down) becomes NETWORK', async () => {
+  it('a rejected fetch (offline) becomes NETWORK', async () => {
     const { mock, provider } = makeProvider();
     mock.reject(new TypeError('fetch failed'));
 
@@ -89,19 +90,33 @@ describe("story: transport failures throw MailProviderError('NETWORK')", () => {
   });
 });
 
-describe('story: an AUTH_REQUIRED error tells the human to start the bridge and sign in with a browser', () => {
-  it('carries actionable guidance, not just the raw bridge message', async () => {
+describe('story: an AUTH_REQUIRED error tells the human to sign in with Google via the app', () => {
+  it('a 401 carries actionable sign-in guidance, not just the raw Gmail message', async () => {
     const { mock, provider } = makeProvider();
-    mock.respondJson(wireError('AUTH_REQUIRED', 'token expired'), 401);
+    mock.respondJson(gmailError(401, 'Invalid Credentials'), 401);
 
     const error = await provider.listTags().catch((e: unknown) => e);
     expect(error).toBeInstanceOf(MailProviderError);
     expect((error as MailProviderError).code).toBe('AUTH_REQUIRED');
     const message = (error as MailProviderError).message;
-    expect(message).toMatch(/bridge/i);
-    expect(message).toMatch(/browser/i);
     expect(message).toMatch(/sign[ -]?in/i);
-    expect(message).toContain('token expired'); // the bridge detail is preserved
+    expect(message).toMatch(/google/i);
+  });
+
+  it('a rejecting getAccessToken (no signed-in account) becomes AUTH_REQUIRED with the same guidance, with no fetch call', async () => {
+    const mock = createFetchMock();
+    const provider = new GmailProvider({
+      getAccessToken: async () => {
+        throw new Error('no account');
+      },
+      fetchFn: mock.fn,
+    });
+
+    const error = await provider.listTags().catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(MailProviderError);
+    expect((error as MailProviderError).code).toBe('AUTH_REQUIRED');
+    expect((error as MailProviderError).message).toMatch(/sign[ -]?in/i);
+    expect(mock.calls).toHaveLength(0);
   });
 });
 
@@ -114,9 +129,9 @@ describe('story: no retry, caching, or offline-queue logic in v1 — a deliberat
     expect(mock.calls).toHaveLength(1);
   });
 
-  it('nothing is cached: every call reaches the bridge again', async () => {
+  it('nothing is cached: every call reaches the API again', async () => {
     const { mock, provider } = makeProvider();
-    mock.respondJson(wireTags()).respondJson(wireTags());
+    mock.respondJson(gmailLabels()).respondJson(gmailLabels());
 
     await provider.listTags();
     await provider.listTags();

@@ -1,129 +1,174 @@
 /**
  * Wire→model mapping tests for the GmailProvider proxy
- * (user-stories/typescript_gmail_proxy.md):
- * - wire snake_case JSON maps field-for-field to the shared camelCase model
- *   types (thread_id→threadId, body_plain→bodyPlain, ...) — one test per
- *   model type;
- * - tag semantics pass through untouched (labels are tags, tag_ids→tagIds,
- *   no folder/containment behavior synthesized);
- * - the bridge's epoch-milliseconds date integers are carried as-is with no
- *   parsing or timezone math;
- * - fixtures are modeled on the bridge's wire JSON with fake addresses, and
- *   the fixture builders are shared with the provider-interface tests where
- *   shapes overlap.
+ * (user-stories/providers/typescript_gmail_proxy.md):
+ * - Gmail wire JSON maps field-for-field to the shared camelCase model types:
+ *   payload.headers yields subject/from/to/cc/bcc (To/Cc/Bcc split on
+ *   commas), body parts walked recursively for text/plain→bodyPlain and
+ *   text/html→bodyHtml (base64url-decoded, absent parts omitted), unread =
+ *   labelIds contains UNREAD — one test per model type;
+ * - tag semantics pass through untouched (labels are tags, id→tagId,
+ *   labelIds→tagIds verbatim, no folder/containment behavior synthesized;
+ *   unreadCount omitted in v1 — labels.list carries no counts);
+ * - date comes from internalDate (a string of epoch milliseconds) via
+ *   Number(), no header parsing;
+ * - a thread summary derives from the metadata fetch: subject/from/snippet/
+ *   date/tagIds from the newest message, unread when any message carries
+ *   UNREAD, messageCount from the message count;
+ * - fixtures are modeled on the Gmail API v1 wire JSON with fake addresses.
  */
 import { describe, expect, it } from 'vitest';
 import { GmailProvider } from '../../src/providers/gmail/GmailProvider';
 import { createFetchMock } from './fetchMock';
-import { makeFixtures } from '../providers/fixtures';
+import { D_M1, D_M2, SELF_ADDRESS } from '../providers/fixtures';
 import {
-  wireMessageGmailLabels,
-  wireMessageM1,
-  wireMessageM2,
-  wireMessageM3,
-  wireTags,
-  wireThreadListWithNext,
-  wireThreadSummaryT1,
-  wireThreadT1,
+  b64url,
+  gmailLabels,
+  gmailMessageM1,
+  gmailMessageM2,
+  gmailMessageM3,
+  gmailMessageNested,
+  gmailMessageSystemLabels,
+  gmailThreadMetaT1,
+  gmailThreadsListWithNext,
+  gmailThreadT1,
 } from './wireFixtures';
 
 function makeProvider() {
   const mock = createFetchMock();
-  const provider = new GmailProvider({ fetchFn: mock.fn });
+  const provider = new GmailProvider({ getAccessToken: async () => 'tok', fetchFn: mock.fn });
   return { mock, provider };
 }
 
-describe('story: wire snake_case maps field-for-field to camelCase — Tag', () => {
-  it('tag_id→tagId, name→name, unread_count→unreadCount', async () => {
+describe('story: Gmail labels map field-for-field to the model Tag', () => {
+  it('id→tagId and name→name, order preserved, nothing added or dropped', async () => {
     const { mock, provider } = makeProvider();
-    mock.respondJson([{ tag_id: 'inbox', name: 'Inbox', unread_count: 2 }]);
+    mock.respondJson(gmailLabels());
 
     const tags = await provider.listTags();
-    expect(tags).toStrictEqual([{ tagId: 'inbox', name: 'Inbox', unreadCount: 2 }]);
-  });
-
-  it('unreadCount is omitted (not undefined-valued) when unread_count is absent on the wire', async () => {
-    const { mock, provider } = makeProvider();
-    mock.respondJson([{ tag_id: 'starred', name: 'Starred' }]);
-
-    const tags = await provider.listTags();
-    expect(tags).toStrictEqual([{ tagId: 'starred', name: 'Starred' }]);
-    expect('unreadCount' in tags[0]).toBe(false);
-  });
-});
-
-describe('story: wire snake_case maps field-for-field to camelCase — ThreadSummary', () => {
-  it('thread_id→threadId, message_count→messageCount, tag_ids→tagIds, rest verbatim', async () => {
-    const { mock, provider } = makeProvider();
-    mock.respondJson(wireThreadListWithNext());
-    const wire = wireThreadSummaryT1();
-
-    const page = await provider.listThreads('inbox');
-
-    expect(page.threads).toStrictEqual([
-      {
-        threadId: wire.thread_id,
-        subject: wire.subject,
-        snippet: wire.snippet,
-        from: wire.from,
-        date: wire.date,
-        unread: wire.unread,
-        messageCount: wire.message_count,
-        tagIds: wire.tag_ids,
-      },
+    expect(tags).toStrictEqual([
+      { tagId: 'inbox', name: 'Inbox' },
+      { tagId: 'work', name: 'Work' },
+      { tagId: 'starred', name: 'Starred' },
+      { tagId: 'sent', name: 'Sent' },
+      { tagId: 'trash', name: 'Trash' },
     ]);
   });
+
+  it('unreadCount is omitted in v1 — labels.list carries no counts', async () => {
+    const { mock, provider } = makeProvider();
+    mock.respondJson(gmailLabels());
+
+    const tags = await provider.listTags();
+    for (const tag of tags) {
+      expect('unreadCount' in tag).toBe(false);
+      // Only the model's own keys: no parent/path/folder fields invented.
+      expect(Object.keys(tag).sort()).toEqual(['name', 'tagId']);
+    }
+  });
 });
 
-describe('story: wire snake_case maps field-for-field to camelCase — Message', () => {
-  it('a plain-only wire message maps exactly to the shared m1 model fixture', async () => {
+describe('story: a Gmail format=full message maps field-for-field to the model Message', () => {
+  it('a single-part text/plain message maps headers, labels, date, and decoded body', async () => {
     const { mock, provider } = makeProvider();
-    mock.respondJson(wireMessageM1());
+    mock.respondJson(gmailMessageM1());
 
     const message = await provider.getMessage('m1');
-    expect(message).toStrictEqual(makeFixtures().messages[0]);
+    expect(message).toStrictEqual({
+      messageId: 'm1',
+      threadId: 't1',
+      from: 'alice@example.com',
+      to: [SELF_ADDRESS],
+      cc: [],
+      bcc: [],
+      subject: 'Quarterly report',
+      date: D_M1,
+      bodyPlain: 'Please review the attached quarterly report.',
+      unread: false,
+      tagIds: ['inbox', 'work'],
+    });
   });
 
-  it('a message with both bodies maps body_plain→bodyPlain and body_html→bodyHtml (shared m2 fixture)', async () => {
+  it('a multipart message maps text/plain→bodyPlain and text/html→bodyHtml, both decoded', async () => {
     const { mock, provider } = makeProvider();
-    mock.respondJson(wireMessageM2());
+    mock.respondJson(gmailMessageM2());
 
     const message = await provider.getMessage('m2');
-    expect(message).toStrictEqual(makeFixtures().messages[1]);
+    expect(message.bodyPlain).toBe('Looks good to me.');
+    expect(message.bodyHtml).toBe('<p>Looks good to me.</p>');
+    expect(message.cc).toEqual(['carol@example.com']);
+    expect(message.unread).toBe(true);
   });
 
-  it('an HTML-only wire message omits bodyPlain in the model (shared m3 fixture)', async () => {
+  it('an HTML-only message omits bodyPlain in the model (absent, not undefined-valued)', async () => {
     const { mock, provider } = makeProvider();
-    mock.respondJson(wireMessageM3());
+    mock.respondJson(gmailMessageM3());
 
     const message = await provider.getMessage('m3');
-    expect(message).toStrictEqual(makeFixtures().messages[2]);
+    expect(message.bodyHtml).toBe('<h1>Weekly digest</h1><p>Top stories this week.</p>');
     expect('bodyPlain' in message).toBe(false);
   });
 
-  it('getThread maps every message in the thread, preserving the bridge order (oldest-first)', async () => {
+  it('bodies nested inside multipart/mixed → multipart/alternative are found recursively', async () => {
     const { mock, provider } = makeProvider();
-    mock.respondJson(wireThreadT1());
+    mock.respondJson(gmailMessageNested());
 
-    const messages = await provider.getThread('t1');
-    expect(messages).toStrictEqual([makeFixtures().messages[0], makeFixtures().messages[1]]);
+    const message = await provider.getMessage('m8');
+    expect(message.bodyPlain).toBe('Nested body.');
+    expect(message.bodyHtml).toBe('<p>Nested body.</p>');
   });
 
-  // Edge case (SKILL.md step 9): a message with an empty body.
-  it('a wire message with no body at all maps without either body key — and without crashing', async () => {
+  it('a To header with multiple comma-separated recipients splits into a list', async () => {
     const { mock, provider } = makeProvider();
-    const { body_plain: _drop, ...bodiless } = wireMessageM1();
-    mock.respondJson(bodiless);
+    const wire = gmailMessageM1();
+    wire.payload.headers = wire.payload.headers.map((h) =>
+      h.name === 'To' ? { name: 'To', value: 'me@example.com, other@example.com' } : h,
+    );
+    mock.respondJson(wire);
+
+    const message = await provider.getMessage('m1');
+    expect(message.to).toEqual(['me@example.com', 'other@example.com']);
+  });
+
+  it('missing To/Cc/Bcc headers map to empty lists and a missing Subject to ""', async () => {
+    const { mock, provider } = makeProvider();
+    const wire = gmailMessageM1();
+    wire.payload.headers = [{ name: 'From', value: 'alice@example.com' }];
+    mock.respondJson(wire);
+
+    const message = await provider.getMessage('m1');
+    expect(message.to).toEqual([]);
+    expect(message.cc).toEqual([]);
+    expect(message.bcc).toEqual([]);
+    expect(message.subject).toBe('');
+  });
+
+  it('getThread maps every message in the thread, preserving Gmail order (oldest-first)', async () => {
+    const { mock, provider } = makeProvider();
+    mock.respondJson(gmailThreadT1());
+
+    const messages = await provider.getThread('t1');
+    expect(messages.map((m) => m.messageId)).toEqual(['m1', 'm2']);
+    expect(messages[0].bodyPlain).toBe('Please review the attached quarterly report.');
+  });
+
+  // Edge case (SKILL.md step 8): a message with an empty body.
+  it('a message with no body data anywhere maps without either body key — and without crashing', async () => {
+    const { mock, provider } = makeProvider();
+    const wire = gmailMessageM1();
+    (wire.payload as { body?: unknown }).body = {};
+    mock.respondJson(wire);
 
     const message = await provider.getMessage('m1');
     expect('bodyPlain' in message).toBe(false);
     expect('bodyHtml' in message).toBe(false);
-    expect(message.subject).toBe(bodiless.subject);
+    expect(message.subject).toBe('Quarterly report');
   });
 
-  it('an empty-string body_plain maps to bodyPlain "" — present-but-empty is not absent', async () => {
+  it('an empty-string body part maps to bodyPlain "" — present-but-empty is not absent', async () => {
     const { mock, provider } = makeProvider();
-    mock.respondJson({ ...wireMessageM1(), body_plain: '' });
+    const wire = gmailMessageM1();
+    wire.payload.body = { data: b64url('') };
+    mock.respondJson(wire);
 
     const message = await provider.getMessage('m1');
     expect(message.bodyPlain).toBe('');
@@ -131,116 +176,86 @@ describe('story: wire snake_case maps field-for-field to camelCase — Message',
   });
 });
 
-describe('story: wire snake_case maps field-for-field to camelCase — SendResult', () => {
-  it('message_id→messageId', async () => {
-    const { mock, provider } = makeProvider();
-    mock.respondJson({ message_id: 'sent-1' });
-
-    const result = await provider.send({
-      to: ['bob@example.com'],
-      subject: 'Hi',
-      bodyPlain: 'Hello',
-    });
-    expect(result).toStrictEqual({ messageId: 'sent-1' });
-  });
-});
-
 describe('story: tag semantics pass through untouched — no folder/containment behavior synthesized', () => {
-  it('Gmail labels arrive as the flat model tag list, same order, nothing added or dropped', async () => {
+  it('labelIds maps to tagIds verbatim, including raw Gmail system label ids', async () => {
     const { mock, provider } = makeProvider();
-    mock.respondJson(wireTags());
-
-    const tags = await provider.listTags();
-    expect(tags).toStrictEqual(makeFixtures().tags);
-    for (const tag of tags) {
-      // Only the model's own keys: no parent/path/folder fields invented.
-      expect(
-        Object.keys(tag).every((key) => ['tagId', 'name', 'unreadCount'].includes(key)),
-      ).toBe(true);
-    }
-  });
-
-  it('tag_ids maps to tagIds verbatim, including raw Gmail system label ids', async () => {
-    const { mock, provider } = makeProvider();
-    mock.respondJson(wireMessageGmailLabels());
+    mock.respondJson(gmailMessageSystemLabels());
 
     const message = await provider.getMessage('m7');
     expect(message.tagIds).toStrictEqual(['INBOX', 'UNREAD', 'STARRED', 'Label_7']);
   });
+
+  it('unread is derived from the UNREAD label, never from a folder', async () => {
+    const { mock, provider } = makeProvider();
+    mock.respondJson(gmailMessageSystemLabels());
+
+    const message = await provider.getMessage('m7');
+    expect(message.unread).toBe(true);
+  });
 });
 
-describe('story: epoch-milliseconds dates are carried as-is with no parsing or timezone math', () => {
-  it('the wire date integer appears identically in the model', async () => {
+describe('story: date comes from internalDate (epoch-milliseconds string) via Number()', () => {
+  it('the internalDate string becomes the model date number, untransformed', async () => {
     const { mock, provider } = makeProvider();
-    const wire = wireMessageM1();
-    mock.respondJson(wire);
+    mock.respondJson(gmailMessageM1());
 
     const message = await provider.getMessage('m1');
     expect(typeof message.date).toBe('number');
-    expect(message.date).toBe(wire.date);
+    expect(message.date).toBe(D_M1);
   });
 
-  it('even a zero date passes through untransformed', async () => {
+  it('even a zero internalDate passes through untransformed', async () => {
     const { mock, provider } = makeProvider();
-    mock.respondJson({ ...wireMessageM1(), date: 0 });
+    mock.respondJson({ ...gmailMessageM1(), internalDate: '0' });
 
     const message = await provider.getMessage('m1');
     expect(message.date).toBe(0);
   });
 });
 
-describe("story: fixtures are modeled on the bridge's wire JSON and use fake addresses", () => {
-  it('wire message fixtures carry exactly the bridge message schema keys', () => {
-    const required = [
-      'message_id',
-      'thread_id',
-      'from',
-      'to',
-      'cc',
-      'bcc',
-      'subject',
-      'date',
-      'unread',
-      'tag_ids',
-    ];
-    expect(Object.keys(wireMessageM2()).sort()).toEqual(
-      [...required, 'body_plain', 'body_html'].sort(),
-    );
-    expect(Object.keys(wireMessageM1()).sort()).toEqual([...required, 'body_plain'].sort());
-    expect(Object.keys(wireMessageM3()).sort()).toEqual([...required, 'body_html'].sort());
-  });
+describe('story: a thread summary derives from the metadata fetch', () => {
+  it('subject/from/snippet/date/tagIds come from the newest message; unread when any message carries UNREAD', async () => {
+    const { mock, provider } = makeProvider();
+    mock.respondJson(gmailThreadsListWithNext()).respondJson(gmailThreadMetaT1());
 
-  it('wire thread_summary and tag fixtures carry exactly the bridge schema keys', () => {
-    expect(Object.keys(wireThreadSummaryT1()).sort()).toEqual(
-      ['thread_id', 'subject', 'snippet', 'from', 'date', 'unread', 'message_count', 'tag_ids'].sort(),
-    );
-    for (const tag of wireTags()) {
-      expect(
-        Object.keys(tag).every((key) => ['tag_id', 'name', 'unread_count'].includes(key)),
-      ).toBe(true);
+    const page = await provider.listThreads('inbox');
+
+    expect(page.threads).toStrictEqual([
+      {
+        threadId: 't1',
+        subject: 'Re: Quarterly report',
+        snippet: 'Looks good to me.',
+        from: 'bob@example.com',
+        date: D_M2,
+        unread: true,
+        messageCount: 2,
+        tagIds: ['inbox', 'work', 'starred', 'UNREAD'],
+      },
+    ]);
+  });
+});
+
+describe('story: fixtures are modeled on the Gmail API v1 wire JSON and use fake addresses', () => {
+  it('wire message fixtures carry the Gmail message resource keys', () => {
+    for (const wire of [gmailMessageM1(), gmailMessageM2(), gmailMessageM3()]) {
+      expect(Object.keys(wire)).toEqual(
+        expect.arrayContaining(['id', 'threadId', 'labelIds', 'snippet', 'internalDate', 'payload']),
+      );
     }
   });
 
   it('every address in the wire fixtures is a fake @example.com address', () => {
     const addresses: string[] = [];
-    for (const wire of [wireMessageM1(), wireMessageM2(), wireMessageM3(), wireMessageGmailLabels()]) {
-      addresses.push(wire.from, ...wire.to, ...wire.cc, ...wire.bcc);
+    for (const wire of [gmailMessageM1(), gmailMessageM2(), gmailMessageM3(), gmailMessageSystemLabels()]) {
+      for (const h of wire.payload.headers) {
+        if (['From', 'To', 'Cc', 'Bcc'].includes(h.name)) {
+          addresses.push(...h.value.split(',').map((a) => a.trim()));
+        }
+      }
     }
-    addresses.push(wireThreadSummaryT1().from);
     expect(addresses.length).toBeGreaterThan(0);
     for (const address of addresses) {
       expect(address).toMatch(/^[\w.+-]+@example\.com$/);
     }
-  });
-});
-
-describe('story: fixture builders are shared with the provider-interface tests where shapes overlap', () => {
-  it('mapped wire fixtures reproduce the shared makeFixtures() model objects exactly', async () => {
-    const { mock, provider } = makeProvider();
-    mock.respondJson(wireTags()).respondJson(wireMessageM1());
-
-    const shared = makeFixtures();
-    expect(await provider.listTags()).toStrictEqual(shared.tags);
-    expect(await provider.getMessage('m1')).toStrictEqual(shared.messages[0]);
   });
 });

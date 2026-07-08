@@ -105,25 +105,26 @@ npx cap run android                     # Android Emulator
 ## Migration Checklist for Existing Code
 
 ### Remove Bridge Components
-- [ ] Delete `bridge/` directory (or keep for reference in a separate branch)
-- [ ] Remove bridge-related dependencies from root `requirements.txt`
-- [ ] Remove bridge startup commands from README
+- [x] Bridge kept in-repo as deprecated reference (`bridge/`, spec marked deprecated); not part of the production build
+- [x] Remove bridge startup commands from README
+- [x] Remove `VITE_BRIDGE_URL` / `loadBridgeConfig` from `src/config.ts`
 
 ### Update GmailProvider
-- [ ] Change from HTTP delegation to direct Gmail API REST calls
-- [ ] Integrate Capacitor OAuth plugin
-- [ ] Map Gmail API v1 responses to model types
-- [ ] Handle token refresh and expiry
+- [x] Change from HTTP delegation to direct Gmail API REST calls (`https://gmail.googleapis.com/gmail/v1/users/me`)
+- [x] Constructor takes a `getAccessToken` supplier (called per request); composition root injects it via the `gmailAuth` option
+- [x] Map Gmail API v1 responses to model types (headers, base64url bodies, labelIds, internalDate)
+- [x] Token refresh stays outside the proxy: the supplier is called per request, so a rotating supplier just works
+- [ ] Integrate the Capacitor OAuth plugin in `main.tsx` and pass its token supplier as `gmailAuth` (see OAUTH_SETUP.md)
 
 ### Add NoOpIntelligence
-- [ ] Create `src/intelligence/NoOpIntelligence.ts`
-- [ ] Implement all 4 interface methods returning empty/no-op results
-- [ ] Update composition root to select based on `VITE_AI_BASE_URL`
+- [x] Create `src/intelligence/NoOpIntelligence.ts`
+- [x] Implement all 4 interface methods returning empty/no-op results
+- [x] Update composition root to select based on `VITE_AI_BASE_URL`
 
 ### Update UI
-- [ ] Handle empty AI results gracefully (hide AI affordances, not errors)
-- [ ] Test all flows with `NoOpIntelligence`
-- [ ] Add app settings for optional `VITE_AI_BASE_URL` configuration
+- [x] Empty AI results degrade gracefully (no auto-tags, empty digest, blank compose, unfiltered search) — no UI changes were needed
+- [x] All flows tested with fakes; composition tested with `NoOpIntelligence`
+- [ ] Add app settings for optional `VITE_AI_BASE_URL` configuration at runtime
 
 ### Package for App Stores
 - [ ] iOS: Use Xcode to sign, provision, and submit to App Store

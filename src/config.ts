@@ -1,16 +1,17 @@
 /**
  * The single runtime-config module (user-stories/typescript_mail_intelligence.md
- * and user-stories/typescript_email_ui.md): AI settings for the intelligence
- * layer plus the Gmail bridge baseUrl, all read from Vite env vars.
+ * and user-stories/typescript_email_ui.md): the optional AI settings for the
+ * intelligence layer, read from Vite env vars. There is no bridge setting —
+ * the app-store build reaches Gmail directly through native OAuth
+ * (see src/providers/gmail/GmailProvider.ts).
  * Injectable: production reads import.meta.env; tests pass their own env
  * object, so no test ever depends on the ambient environment.
  *
- * - VITE_BRIDGE_URL — origin of the localhost Python bridge. Default
- *   http://127.0.0.1:8765; the Android emulator reaches the host machine via
- *   http://10.0.2.2:8765, and a physical device via the host's LAN address.
  * - VITE_AI_BASE_URL — OpenAI-compatible /v1 endpoint of the self-hosted
- *   server. Default is Ollama's http://127.0.0.1:11434/v1 (LM Studio serves
- *   :1234/v1, vLLM :8000/v1). Always the user's own machine or LAN.
+ *   server. Leaving it unset disables AI (the composition root selects
+ *   NoOpIntelligence). When constructing LocalIntelligence the default is
+ *   Ollama's http://127.0.0.1:11434/v1 (LM Studio serves :1234/v1, vLLM
+ *   :8000/v1). Always the user's own machine or LAN.
  * - VITE_AI_MODEL — required, no default: fail fast with an error naming it.
  * - VITE_AI_API_KEY — placeholder for self-hosted servers, default
  *   "not-needed"; a real gateway key can be injected without code changes.
@@ -44,14 +45,7 @@ export function loadAiConfig(
   };
 }
 
-export interface BridgeConfig {
-  baseUrl: string;
-}
-
-export const DEFAULT_BRIDGE_URL = 'http://127.0.0.1:8765';
-
-export function loadBridgeConfig(
-  env: EnvLike = import.meta.env as unknown as EnvLike,
-): BridgeConfig {
-  return { baseUrl: env.VITE_BRIDGE_URL || DEFAULT_BRIDGE_URL };
+/** True when the user has opted in to AI by configuring a server endpoint. */
+export function isAiConfigured(env: EnvLike = import.meta.env as unknown as EnvLike): boolean {
+  return (env.VITE_AI_BASE_URL ?? '').trim() !== '';
 }

@@ -1,16 +1,24 @@
 /**
- * Composition-root stories (user-stories/typescript_email_ui.md):
+ * Composition-root stories (user-stories/typescript_email_ui.md,
+ * user-stories/typescript_mail_intelligence.md, and
+ * user-stories/providers/typescript_gmail_proxy.md):
  * - story (engineer): app startup constructs the providers, the intelligence
  *   backend, the store, and the plugin host in one composition-root module —
  *   the only module allowed to import concrete classes;
  * - story (engineer): construction performs no I/O (every backend connects
- *   lazily), and a missing AI model degrades intelligence instead of blocking
- *   mail.
+ *   lazily);
+ * - story (engineer): GmailProvider is registered with the getAccessToken
+ *   received via the optional gmailAuth option; without one, Gmail calls
+ *   surface AUTH_REQUIRED with sign-in guidance instead of crashing;
+ * - story (engineer): NoOpIntelligence is instantiated when VITE_AI_BASE_URL
+ *   is not configured or empty — the app works out of the box with no server
+ *   setup; a configured VITE_AI_BASE_URL selects LocalIntelligence.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { composeApp, GMAIL_ACCOUNT_ID } from '../../src/composition';
 import { GmailProvider } from '../../src/providers/gmail/GmailProvider';
 import { LocalIntelligence } from '../../src/intelligence/LocalIntelligence';
+import { NoOpIntelligence } from '../../src/intelligence/NoOpIntelligence';
 import { SqliteMailStore } from '../../src/store/SqliteMailStore';
 import { PluginHost } from '../../src/plugins/PluginHost';
 import { FakePlugin } from '../../src/plugins/FakePlugin';
@@ -45,30 +53,79 @@ function memoryStorage(): { getItem(key: string): string | null; setItem(key: st
 }
 
 describe('story: one composition-root module wires every concrete backend', () => {
-  it('constructs the Gmail provider, LocalIntelligence, SqliteMailStore, and PluginHost without I/O', () => {
+  it('constructs the Gmail provider, the intelligence backend, SqliteMailStore, and PluginHost without I/O', () => {
     const { handle, calls } = recordingDbHandle();
+    const getAccessToken = vi.fn(async () => 'tok');
     const services = composeApp({
-      env: { VITE_AI_MODEL: 'test-model', VITE_BRIDGE_URL: 'http://10.0.2.2:8765' },
+      env: {},
+      gmailAuth: getAccessToken,
       dbHandle: handle,
       settingsStorage: memoryStorage(),
       plugins: [new FakePlugin({ id: 'bundled', contributes: ['settingsPanel'] })],
     });
 
     expect(services.registry.listAccounts()).toContain(GMAIL_ACCOUNT_ID);
-    const provider = services.registry.resolve(GMAIL_ACCOUNT_ID);
-    expect(provider).toBeInstanceOf(GmailProvider);
-    expect((provider as unknown as { baseUrl: string }).baseUrl).toBe('http://10.0.2.2:8765');
-    expect(services.intelligence).toBeInstanceOf(LocalIntelligence);
+    expect(services.registry.resolve(GMAIL_ACCOUNT_ID)).toBeInstanceOf(GmailProvider);
     expect(services.store).toBeInstanceOf(SqliteMailStore);
     expect(services.pluginHost).toBeInstanceOf(PluginHost);
     expect(services.pluginHost.list().map((item) => item.id)).toContain('bundled');
-    // Lazy everywhere: composing the app touches no database, no network.
+    // Lazy everywhere: composing the app touches no database, no network,
+    // and no OAuth token.
     expect(calls).toEqual([]);
+    expect(getAccessToken).not.toHaveBeenCalled();
   });
 
-  it('a missing VITE_AI_MODEL degrades intelligence to AI_UNAVAILABLE instead of blocking mail', async () => {
+  it('without gmailAuth, a Gmail call surfaces AUTH_REQUIRED with sign-in guidance instead of crashing', async () => {
     const { handle } = recordingDbHandle();
     const services = composeApp({ env: {}, dbHandle: handle, settingsStorage: memoryStorage() });
+
+    const provider = services.registry.resolve(GMAIL_ACCOUNT_ID);
+    const error = await provider.listTags().catch((e: unknown) => e);
+    expect(error).toMatchObject({ name: 'MailProviderError', code: 'AUTH_REQUIRED' });
+    expect((error as Error).message).toMatch(/sign[ -]?in/i);
+  });
+});
+
+describe('story: AI is opt-in — VITE_AI_BASE_URL decides the intelligence backend', () => {
+  it('an unset VITE_AI_BASE_URL selects NoOpIntelligence: the app works with zero server setup', async () => {
+    const { handle } = recordingDbHandle();
+    const services = composeApp({ env: {}, dbHandle: handle, settingsStorage: memoryStorage() });
+
+    expect(services.intelligence).toBeInstanceOf(NoOpIntelligence);
+    // Empty results, never an error: core mail flows run untouched.
+    await expect(services.intelligence.classify(INVOICE_M1, [])).resolves.toStrictEqual({
+      tagIds: [],
+      importance: 'normal',
+    });
+  });
+
+  it('an empty/whitespace VITE_AI_BASE_URL also selects NoOpIntelligence', () => {
+    const { handle } = recordingDbHandle();
+    const services = composeApp({
+      env: { VITE_AI_BASE_URL: '   ', VITE_AI_MODEL: 'llama3' },
+      dbHandle: handle,
+      settingsStorage: memoryStorage(),
+    });
+    expect(services.intelligence).toBeInstanceOf(NoOpIntelligence);
+  });
+
+  it('a configured VITE_AI_BASE_URL with a model selects LocalIntelligence', () => {
+    const { handle } = recordingDbHandle();
+    const services = composeApp({
+      env: { VITE_AI_BASE_URL: 'http://127.0.0.1:11434/v1', VITE_AI_MODEL: 'llama3' },
+      dbHandle: handle,
+      settingsStorage: memoryStorage(),
+    });
+    expect(services.intelligence).toBeInstanceOf(LocalIntelligence);
+  });
+
+  it('a configured VITE_AI_BASE_URL with a missing model degrades to AI_UNAVAILABLE — misconfiguration surfaces, mail keeps working', async () => {
+    const { handle } = recordingDbHandle();
+    const services = composeApp({
+      env: { VITE_AI_BASE_URL: 'http://127.0.0.1:11434/v1' },
+      dbHandle: handle,
+      settingsStorage: memoryStorage(),
+    });
 
     expect(services.registry.listAccounts()).toContain(GMAIL_ACCOUNT_ID);
     await expect(services.intelligence.classify(INVOICE_M1, [])).rejects.toMatchObject({

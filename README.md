@@ -3,20 +3,23 @@ Humans shouldn't code - they make mistakes
 
 A cross-platform email client — iOS, Android, and web all from one codebase — built as a
 [Capacitor](https://capacitorjs.com/) shell around a React + Vite + TypeScript UI.
+**Install it from the app store, sign in with Google, and read mail — no server to set
+up, nothing else to install.**
 
 Mail platforms are pluggable: the UI talks only to a `MailProvider` interface, and each
-platform is a proxy registered behind it. Gmail is the first. Organization is
+platform is a proxy registered behind it. Gmail is the first: the app signs in through
+the platform's native OAuth flow and talks to the Gmail API directly. Organization is
 **tag-based** — messages carry any number of tags; there are no folders.
 
-**AI is built into how the client runs — and it's entirely self-hosted**, behind a
+**AI is optional — and when you enable it, it's entirely self-hosted**, behind a
 `MailIntelligence` interface of its own. Point it at any OpenAI-compatible inference
 server you run yourself — [Ollama](https://ollama.com/), [vLLM](https://docs.vllm.ai/),
 or [LM Studio](https://lmstudio.ai/) — and arriving mail is auto-tagged into your real
 tags, long threads open with a summary and action items, replies start from an AI
 draft you edit, and the search box takes plain language ("invoices from ACME last
 month"). Your mail content never leaves your machines, nothing is ever sent without
-your explicit action, and if the AI server is down the client still reads, tags, and
-sends mail normally.
+your explicit action. Without an AI server configured, the client reads, tags,
+searches, and sends mail exactly the same — only the AI affordances are absent.
 
 **Storage is local-first**: synced mail lives in an on-device SQLite database, so
 previously synced threads stay readable offline, and text search runs on your device —
@@ -25,8 +28,9 @@ makes local search instant without ever being able to miss a real match.
 
 ## Contents
 - Project status
-- Building the project
-- Running the client
+- Getting the app
+- Building from source
+- Running the client (developers)
 - Running tests
 - Adding a mail platform
 - Extending with plug-ins
@@ -34,9 +38,10 @@ makes local search instant without ever being able to miss a real match.
 
 ## Project status
 
-**Building from spec.** All seven components of the build order are implemented and
-tested — the provider interface (`src/providers/`), the Gmail bridge (`bridge/`), the
-`GmailProvider` proxy, the self-hosted AI layer (`src/intelligence/`), the local
+**Building from spec.** All components of the build order are implemented and
+tested — the provider interface (`src/providers/`), the `GmailProvider` proxy
+(native OAuth, direct Gmail REST), the optional AI layer (`src/intelligence/`,
+including the `NoOpIntelligence` graceful-degradation backend), the local
 store with Bloom-filter search (`src/store/`), the plug-in system (`src/plugins/`),
 and the React UI with its composition root and Capacitor shell (`src/ui/`,
 `src/composition.ts`, `src/main.tsx`, `capacitor.config.ts`). Every component is
@@ -47,14 +52,16 @@ generated from its spec:
 | `SKILL.md` | The overall process and architecture: components, TDD loop, order of operations |
 | `user-stories/providers/typescript_mail_provider.md` | Spec: `MailProvider` interface, shared model, `ProviderRegistry` — the generalized skill every provider follows, with the provider-family index |
 | `user-stories/providers/typescript_fake_provider.md` | Spec: `FakeProvider`, the in-memory reference implementation tests seed |
-| `user-stories/providers/python_gmail_bridge.md` | Spec: the local Gmail bridge service |
-| `user-stories/providers/typescript_gmail_proxy.md` | Spec: `GmailProvider`, the first concrete proxy |
+| `user-stories/providers/typescript_gmail_proxy.md` | Spec: `GmailProvider`, the first concrete proxy — native OAuth, direct Gmail REST |
+| `user-stories/providers/python_gmail_bridge.md` | Spec (deprecated): the old localhost bridge, kept for reference only |
 | `user-stories/providers/typescript_yahoo_provider.md` | Spec (future): `YahooProvider` over IMAP/SMTP — no code yet |
 | `user-stories/providers/typescript_microsoft_provider.md` | Spec (future): `MicrosoftProvider` over Microsoft Graph — no code yet |
-| `user-stories/typescript_mail_intelligence.md` | Spec: `MailIntelligence` + `LocalIntelligence`, the self-hosted AI core |
+| `user-stories/typescript_mail_intelligence.md` | Spec: `MailIntelligence` + `LocalIntelligence` + `NoOpIntelligence`, the optional self-hosted AI layer |
 | `user-stories/typescript_mail_store.md` | Spec: `MailStore` + `SqliteMailStore`, offline storage and Bloom-filter search |
 | `user-stories/typescript_plugin_system.md` | Spec: `MailPlugin` + `PluginHost`, typed crash-isolated extension points |
-| `user-stories/typescript_email_ui.md` | Spec: the AI-driven screens and Capacitor shell |
+| `user-stories/typescript_email_ui.md` | Spec: the screens and Capacitor shell |
+| `ARCHITECTURE.md` | The app-store distribution model: native OAuth, optional AI, migration notes |
+| `OAUTH_SETUP.md` | Wiring the native Google OAuth flow per platform |
 | `TODO.md` | Long-term feature backlog (derived from FairEmail) |
 | `CLAUDE.md` | Working rules for code generation (strict TDD) |
 
@@ -63,27 +70,48 @@ test before any implementation is written (red → green → refactor → commit
 
 Per-component sequence and flow diagrams live in `docs/diagrams/` as PNGs; each is
 generated by a small committed script in `docs/diagrams/src/` (e.g.
-`.venv/bin/python docs/diagrams/src/store_sequence.py`), so they are reproducible.
+`.venv/bin/python docs/diagrams/src/proxy_sequence.py`), so they are reproducible.
 
-## Building the project
+## Getting the app
 
-**Prerequisites**: Node.js 20+ (with npm) and Python 3.11+. Xcode or Android Studio
-are needed only for device builds.
+Download JojiMailAI from the iOS App Store or Google Play (or open the web app),
+tap **Sign in with Google**, and your mail appears. That's the whole setup:
+
+- **No server to install.** The app talks to Gmail directly over the platform's
+  native OAuth sign-in (ASWebAuthenticationSession on iOS, Custom Tabs on Android,
+  browser OAuth on web). Your OAuth token stays in the platform keystore.
+- **AI is opt-in.** Out of the box the AI affordances are simply absent — reading,
+  tagging, searching, and sending all work. To enable AI, run an inference server
+  on a machine you own (see below) and point the app at it.
+- **Offline works.** Synced mail persists on-device and stays readable and
+  text-searchable without a connection.
+
+### Enabling AI (optional)
+
+Run [Ollama](https://ollama.com/), [vLLM](https://docs.vllm.ai/), or
+[LM Studio](https://lmstudio.ai/) on your machine or home network and configure the
+app with `VITE_AI_BASE_URL` (e.g. `http://192.168.1.20:11434/v1`; LM Studio uses
+`:1234/v1`, vLLM `:8000/v1`) and `VITE_AI_MODEL` (the model you've pulled/loaded,
+e.g. `llama3.1`). `VITE_AI_API_KEY` defaults to the placeholder `not-needed` that
+self-hosted servers accept; set it only if your server sits behind a gateway that
+checks keys. Mail content goes only to that server — never to a cloud AI service.
+
+**Verify**: `curl $VITE_AI_BASE_URL/models` lists the model you set in
+`VITE_AI_MODEL`. If the server is down or the model is missing mid-session, the AI
+affordances show an actionable error and everything else keeps working.
+
+## Building from source
+
+**Prerequisites**: Node.js 20+ (with npm). Xcode or Android Studio are needed only
+for device builds. Python 3.11+ is needed only for the diagram scripts and the
+deprecated bridge's test suite.
 
 ### One-time setup
 
 ```
 npm install                                   # TypeScript app + test toolchain
-uv venv                                       # Python env for the bridge
-uv pip install fastapi httpx pytest           # bridge + its test suite
-uv pip install uvicorn                        # only to run the bridge; tests never need it
-```
-
-The bridge imports `simplegmail` lazily, so tests never need it. Install it (the
-JosephMRally fork) only when you want to run the bridge against real Gmail:
-
-```
-uv pip install "git+https://github.com/JosephMRally/simplegmail"
+uv venv                                       # optional: Python env for pytest + diagrams
+uv pip install fastapi httpx pytest matplotlib
 ```
 
 The web build of SQLite (`jeep-sqlite`) loads `public/assets/sql-wasm.wasm` at
@@ -98,7 +126,7 @@ npm pack sql.js@1.11.0 && tar -xzf sql.js-1.11.0.tgz package/dist/sql-wasm.wasm 
   && mv package/dist/sql-wasm.wasm public/assets/ && rm -r package sql.js-1.11.0.tgz
 ```
 
-**Verify the setup** before building: both test suites must pass (see Running tests).
+**Verify the setup** before building: the test suite must pass (see Running tests).
 
 ### Build the web app
 
@@ -114,50 +142,33 @@ npx cap add ios    # and/or: npx cap add android
 
 After every `npm run build`, copy the fresh bundle into the shells with
 `npx cap sync`. Device configuration lives in `capacitor.config.ts`
-(`appId`, `appName`, `webDir: dist`).
+(`appId`, `appName`, `webDir: dist`). Wiring the Google OAuth client per platform
+(URL scheme, client ids) is documented in `OAUTH_SETUP.md`.
 
 ### Rebuild the diagrams (optional)
 
 The PNGs in `docs/diagrams/` are generated — rerun any script in
 `docs/diagrams/src/` with `.venv/bin/python` after changing a component
-(requires `.venv/bin/pip install matplotlib`).
+(requires matplotlib in the venv).
 
-## Running the client
+## Running the client (developers)
 
 Startup checklist — verify each step before moving to the next:
 
 ```
 Startup:
-- [ ] 1. Bridge started and /health returns ok
-- [ ] 2. AI server running and model loaded (optional but recommended)
-- [ ] 3. App started
+- [ ] 1. AI server running and model loaded (optional)
+- [ ] 2. App started
+- [ ] 3. Signed in with Google
 ```
 
-### 1. Start the bridge
+### 1. Start your AI server (optional)
 
-```
-uv run python bridge/app.py
-```
+Start Ollama, vLLM, or LM Studio with your chosen model loaded, and set
+`VITE_AI_BASE_URL` + `VITE_AI_MODEL` (see Enabling AI above). Skip this step
+entirely to run without AI.
 
-The bridge talks to Gmail itself; the app talks only to the bridge (localhost, port
-8765 by default — see `--port`, `--token`, `--client-secret`, `--verbose`).
-
-**Verify** before continuing: `curl http://127.0.0.1:8765/health` → `{"status": "ok"}`.
-If it fails, fix the bridge first — nothing downstream works without it.
-
-**The first run needs a browser**: it opens a Google sign-in page to authorize the
-account and saves a reusable token file. It cannot authenticate headless on a cold
-start; every run after that reuses the token silently.
-
-### 2. Start your AI server (optional)
-
-Start Ollama, vLLM, or LM Studio with your chosen model loaded.
-
-**Verify**: `curl $VITE_AI_BASE_URL/models` (e.g. `http://127.0.0.1:11434/v1/models`)
-lists the model you set in `VITE_AI_MODEL`. If the server is down or the model is
-missing, the app still runs — AI affordances show an actionable error instead.
-
-### 3. Start the app
+### 2. Start the app
 
 In a browser during development:
 
@@ -173,27 +184,21 @@ npx cap sync
 npx cap run ios      # or: npx cap run android
 ```
 
-If the device can't reach the host's localhost (e.g. the Android emulator), point the
-app at the bridge with `VITE_BRIDGE_URL` (the Android emulator reaches the host at
-`http://10.0.2.2:8765`).
+### 3. Sign in with Google
 
-**AI features need a self-hosted inference server** — Ollama, vLLM, or LM Studio, all of
-which serve an OpenAI-compatible `/v1` endpoint. Configure it with `VITE_AI_BASE_URL`
-(default `http://127.0.0.1:11434/v1`, Ollama's default; LM Studio uses `:1234/v1`, vLLM
-`:8000/v1`) and `VITE_AI_MODEL` (the model you've pulled/loaded, e.g. `llama3.1`).
-`VITE_AI_API_KEY` defaults to the placeholder `not-needed` that self-hosted servers
-accept; set it only if your server sits behind a gateway that checks keys. Mail
-content goes only to that server — never to a cloud AI service. Without a running server,
-the AI affordances are disabled and everything else works.
+The first mail access prompts for Google sign-in through the platform's native
+OAuth flow; the token is stored by the platform and reused silently afterwards.
+Until you sign in, mail screens show an actionable "sign in with Google" error and
+nothing crashes.
 
 ## Running tests
 
 ```
-.venv/bin/python -m pytest bridge/tests/ -q   # Python bridge
 npx vitest run                                 # all TypeScript layers (providers, intelligence, store, plugins, UI)
+.venv/bin/python -m pytest bridge/tests/ -q   # deprecated bridge (kept for reference)
 ```
 
-Tests are fully mocked — nothing touches a real account or the network.
+Tests are fully mocked — nothing touches a real account, an OAuth flow, or the network.
 
 ## Adding a mail platform
 
@@ -224,6 +229,8 @@ files or URLs is a deliberate non-goal.
 
 ## Safety
 
-- The bridge binds to `127.0.0.1` only; the mailbox is never reachable off-device.
+- OAuth tokens live in the platform keystore (Keychain / KeyStore); the app never
+  sees your Google password and there is no third-party server in the path.
 - Trash only moves mail to Gmail's Trash — nothing is ever deleted permanently.
-- Mail data and credentials stay on your device; there is no third-party server.
+- Mail data stays on your device; AI inference (if enabled) goes only to the server
+  you host.
