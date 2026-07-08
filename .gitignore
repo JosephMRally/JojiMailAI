@@ -7,3 +7,4 @@ __pycache__/
 coverage/
 .claude/
 tsconfig.tsbuildinfo
+.env.local
