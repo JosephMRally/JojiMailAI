@@ -1,0 +1,65 @@
+{
+  "tags": [
+    {
+      "tagId": "inbox",
+      "name": "Inbox",
+      "unreadCount": 2
+    },
+    {
+      "tagId": "sent",
+      "name": "Sent",
+      "unreadCount": 0
+    },
+    {
+      "tagId": "archive",
+      "name": "Archive",
+      "unreadCount": 0
+    },
+    {
+      "tagId": "trash",
+      "name": "Trash",
+      "unreadCount": 0
+    }
+  ],
+  "messages": [
+    {
+      "messageId": "m1",
+      "threadId": "t1",
+      "from": "alice@example.com",
+      "to": ["me@example.com"],
+      "cc": [],
+      "bcc": [],
+      "subject": "Hello",
+      "date": 1000000,
+      "bodyPlain": "Hi, how are you?",
+      "unread": true,
+      "tagIds": ["inbox"]
+    },
+    {
+      "messageId": "m2",
+      "threadId": "t1",
+      "from": "me@example.com",
+      "to": ["alice@example.com"],
+      "cc": [],
+      "bcc": [],
+      "subject": "Re: Hello",
+      "date": 1000100,
+      "bodyPlain": "Great! Thanks for asking.",
+      "unread": false,
+      "tagIds": ["sent"]
+    },
+    {
+      "messageId": "m3",
+      "threadId": "t2",
+      "from": "bob@example.com",
+      "to": ["me@example.com"],
+      "cc": [],
+      "bcc": [],
+      "subject": "Meeting tomorrow",
+      "date": 1001000,
+      "bodyPlain": "Can we reschedule?",
+      "unread": true,
+      "tagIds": ["inbox"]
+    }
+  ]
+}
