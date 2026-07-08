@@ -135,9 +135,22 @@ npm run build -- --provider=gmail   # type-checks (tsc -b) and bundles with Vite
 ```
 
 The `--provider` flag is required: a production bundle must state which mail
-platform it ships (currently `gmail`). Building without it — or with an unknown
-id — fails immediately with an error listing the known providers, before any
-compilation starts.
+platform it ships. Building without it — or with an unknown id — fails
+immediately with an error listing the known providers, before any compilation
+starts.
+
+**Available providers:**
+
+| Provider | ID | Status | Platform/Protocol |
+|----------|----|---------|--------------------|
+| Gmail | `gmail` | ✅ Implemented | Google Gmail API v1 (native OAuth) |
+| Yahoo | `yahoo` | 📋 Planned | IMAP/SMTP |
+| Microsoft 365 | `microsoft` | 📋 Planned | Microsoft Graph API |
+
+To add a new provider: implement the `MailProvider` interface (see
+`user-stories/providers/typescript_mail_provider.md`), add its id to
+`KNOWN_PROVIDERS` in `scripts/providerFlag.mjs`, and register it in the
+composition root's provider map (`src/composition.ts`). The UI changes not at all.
 
 ### Build the native shells (first time only)
 
