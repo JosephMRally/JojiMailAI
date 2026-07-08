@@ -1,6 +1,6 @@
 # JojiMailAI
 
-A cross-platform, AI-native email client (Capacitor + React/Vite/TypeScript web UI) generated from spec files: `SKILL.md` defines the overall process and architecture, and each `user-stories/*.md` is the spec for one component. User stories in the specs are the source of truth for tests and code — Skill Driven Development (SDD): write code only to satisfy a spec, and change the spec before changing behavior. `TODO.md` is the longer-term feature backlog (derived from FairEmail), not a spec.
+A cross-platform, AI-native email client (Capacitor + React/Vite/TypeScript web UI) generated from spec files: `SKILL.md` defines the overall process and architecture, and each `user-stories/*.md` is the spec for one component. User stories in the specs are the source of truth for tests and code — Skill Driven Development (SDD): write code only to satisfy a spec, and change the spec before changing behavior. `TODO.md` is the longer-term feature backlog (derived from FairEmail), not a spec. This skill was designed as a POC to run in Claude Code with an effort of ultracode.
 
 ## Authoring best practices (all .md files)
 
