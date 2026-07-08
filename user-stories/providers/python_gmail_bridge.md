@@ -1,6 +1,8 @@
-# Python gmail bridge
+# Python gmail bridge [DEPRECATED in app-store model]
 ## Function
-Create a Python service called `bridge/app.py`; do not execute! The service should be a Facade over the `simplegmail` library that hides the Gmail API behind a small localhost HTTP API. It is the **server-side half of the Gmail proxy**: `simplegmail` is Python and cannot run inside the Capacitor webview, so the app-side `GmailProvider` (see `typescript_gmail_proxy.md`) delegates to this bridge over HTTP. The bridge owns all Gmail I/O — OAuth, paging, label changes, send — so the web app never touches Google directly and never holds Gmail credentials.
+**Note: This spec documents the original bridge architecture. The app-store distribution model uses native OAuth instead (see `typescript_gmail_proxy.md`). This document is retained for reference.**
+
+The service was a Facade over the `simplegmail` library that hid the Gmail API behind a localhost HTTP API — the server-side half of the Gmail proxy pattern. It was used when the app ran on desktop or required a development bridge for testing. The bridge is no longer part of the production build.
 
 ## User Stories
 
