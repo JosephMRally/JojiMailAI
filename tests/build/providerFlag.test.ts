@@ -42,12 +42,24 @@ describe('story: a valid flag resolves to the provider id', () => {
     expect(resolveProviderFlag(['--provider=gmail'])).toBe('gmail');
   });
 
+  it('accepts --provider=fake', () => {
+    expect(resolveProviderFlag(['--provider=fake'])).toBe('fake');
+  });
+
   it('accepts the two-argument form --provider gmail', () => {
     expect(resolveProviderFlag(['--provider', 'gmail'])).toBe('gmail');
   });
 
+  it('accepts the two-argument form --provider fake', () => {
+    expect(resolveProviderFlag(['--provider', 'fake'])).toBe('fake');
+  });
+
   it('gmail is a known provider', () => {
     expect(KNOWN_PROVIDERS).toContain('gmail');
+  });
+
+  it('fake is a known provider', () => {
+    expect(KNOWN_PROVIDERS).toContain('fake');
   });
 });
 

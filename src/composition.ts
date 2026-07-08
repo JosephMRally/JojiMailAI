@@ -25,6 +25,7 @@ import { NoOpIntelligence } from './intelligence/NoOpIntelligence';
 import type { MailPlugin } from './plugins/MailPlugin';
 import { PluginHost } from './plugins/PluginHost';
 import { LocalStoragePluginSettings, type StorageLike } from './plugins/PluginSettings';
+import { FakeProvider } from './providers/FakeProvider';
 import { GmailProvider } from './providers/gmail/GmailProvider';
 import { ProviderRegistry } from './providers/ProviderRegistry';
 import type { DbHandle } from './store/DbHandle';
@@ -95,6 +96,7 @@ function registerSelectedProvider(
         GMAIL_ACCOUNT_ID,
         new GmailProvider({ getAccessToken: options.gmailAuth ?? defaultGmailAuth(env) }),
       ),
+    fake: () => registry.register('fake', new FakeProvider()),
   };
 
   const selected = (env.VITE_MAIL_PROVIDER ?? '').trim() || 'gmail';
