@@ -14,6 +14,7 @@ import type { Message, Tag } from '../providers/model';
 import type { ProviderRegistry } from '../providers/ProviderRegistry';
 import type { MailStore } from '../store/MailStore';
 import { ComposeScreen, type ComposePrefill } from './ComposeScreen';
+import { toProviderFailure, type ProviderFailure } from './errors';
 import { MailboxScreen } from './MailboxScreen';
 import { PluginSettingsScreen } from './PluginSettingsScreen';
 import { ThreadViewScreen } from './ThreadViewScreen';
@@ -46,6 +47,8 @@ export function App({ registry, intelligence, store, pluginHost, now = Date.now 
   const [caps, setCaps] = useState<ProviderCapabilities | null>(null);
   const [tagId, setTagId] = useState<string | null>(null);
   const [screen, setScreen] = useState<Screen>({ kind: 'list' });
+  const [loadError, setLoadError] = useState<ProviderFailure | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   // Account selection loads that provider's tags and capabilities.
   useEffect(() => {
@@ -53,6 +56,7 @@ export function App({ registry, intelligence, store, pluginHost, now = Date.now 
     setTags(null);
     setCaps(null);
     setTagId(null);
+    setLoadError(null);
     setScreen({ kind: 'list' });
     void Promise.all([provider.listTags(), provider.capabilities()]).then(
       ([loadedTags, loadedCaps]) => {
@@ -61,11 +65,16 @@ export function App({ registry, intelligence, store, pluginHost, now = Date.now 
         setCaps(loadedCaps);
         setTagId(loadedTags[0]?.tagId ?? null);
       },
+      (error: unknown) => {
+        // Error state, never a stuck loading screen — e.g. AUTH_REQUIRED
+        // before Google sign-in, or offline at startup.
+        if (live) setLoadError(toProviderFailure(error));
+      },
     );
     return () => {
       live = false;
     };
-  }, [provider]);
+  }, [provider, loadAttempt]);
 
   const openReply = (message: Message, thread: Message[]): void => {
     setScreen({
@@ -88,7 +97,12 @@ export function App({ registry, intelligence, store, pluginHost, now = Date.now 
           </button>
         ))}
       </nav>
-      {tags === null || caps === null ? (
+      {loadError !== null ? (
+        <div role="alert">
+          {loadError.message}{' '}
+          <button onClick={() => setLoadAttempt((attempt) => attempt + 1)}>Retry</button>
+        </div>
+      ) : tags === null || caps === null ? (
         <p>Loading…</p>
       ) : (
         <>

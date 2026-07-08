@@ -188,8 +188,15 @@ npx cap run ios      # or: npx cap run android
 
 The first mail access prompts for Google sign-in through the platform's native
 OAuth flow; the token is stored by the platform and reused silently afterwards.
-Until you sign in, mail screens show an actionable "sign in with Google" error and
-nothing crashes.
+Until you sign in, the app shows a "sign in with Google" error with a Retry
+button — never a stuck loading screen.
+
+**Developer escape hatch**: before the native OAuth flow is wired for your
+platform, set `VITE_GMAIL_ACCESS_TOKEN` to a Gmail-scoped OAuth2 access token
+(e.g. from [Google's OAuth playground](https://developers.google.com/oauthplayground/)
+with the `https://www.googleapis.com/auth/gmail.modify` scope) and restart
+`npm run dev` — the app uses it directly. Playground tokens expire after about
+an hour; refresh and restart when calls start failing with AUTH_REQUIRED.
 
 ## Running tests
 

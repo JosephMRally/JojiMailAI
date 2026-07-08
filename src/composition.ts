@@ -64,12 +64,10 @@ export function composeApp(options: CompositionOptions): AppServices {
   const env = options.env ?? (import.meta.env as unknown as EnvLike);
 
   const registry = new ProviderRegistry();
-  const getAccessToken =
-    options.gmailAuth ??
-    (async (): Promise<string> => {
-      throw new Error('no Gmail account is signed in');
-    });
-  registry.register(GMAIL_ACCOUNT_ID, new GmailProvider({ getAccessToken }));
+  registry.register(
+    GMAIL_ACCOUNT_ID,
+    new GmailProvider({ getAccessToken: options.gmailAuth ?? defaultGmailAuth(env) }),
+  );
 
   const store: MailStore = new SqliteMailStore(options.dbHandle);
 
@@ -79,6 +77,22 @@ export function composeApp(options: CompositionOptions): AppServices {
   }
 
   return { registry, intelligence: composeIntelligence(env), store, pluginHost };
+}
+
+/**
+ * The fallback token supplier when no gmailAuth is wired: the
+ * VITE_GMAIL_ACCESS_TOKEN developer escape hatch (e.g. a token from Google's
+ * OAuth playground) if set, otherwise a rejection that GmailProvider
+ * surfaces as AUTH_REQUIRED with sign-in guidance.
+ */
+function defaultGmailAuth(env: EnvLike): () => Promise<string> {
+  const devToken = (env.VITE_GMAIL_ACCESS_TOKEN ?? '').trim();
+  if (devToken !== '') {
+    return async () => devToken;
+  }
+  return async () => {
+    throw new Error('no Gmail account is signed in');
+  };
 }
 
 /** AI is opt-in: no VITE_AI_BASE_URL → NoOp; configured-but-broken → surfaced. */

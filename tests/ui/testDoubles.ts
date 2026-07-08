@@ -60,6 +60,16 @@ export class HangingProvider extends FakeProvider {
   }
 }
 
+/** FakeProvider whose listTags rejects until cleared (startup auth/offline stories). */
+export class TagsFailingProvider extends FakeProvider {
+  tagsFailWith?: MailProviderError;
+
+  override async listTags(): Promise<Tag[]> {
+    if (this.tagsFailWith) throw this.tagsFailWith;
+    return super.listTags();
+  }
+}
+
 /** FakeProvider reporting fixed capabilities (capability-gating stories). */
 export class CapabilityProvider extends FakeProvider {
   constructor(

@@ -84,6 +84,32 @@ describe('story: one composition-root module wires every concrete backend', () =
     expect(error).toMatchObject({ name: 'MailProviderError', code: 'AUTH_REQUIRED' });
     expect((error as Error).message).toMatch(/sign[ -]?in/i);
   });
+
+  it('without gmailAuth, VITE_GMAIL_ACCESS_TOKEN supplies the default token (developer escape hatch)', async () => {
+    const fetchSpy = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(JSON.stringify({ labels: [] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+    );
+    vi.stubGlobal('fetch', fetchSpy);
+    try {
+      const { handle } = recordingDbHandle();
+      const services = composeApp({
+        env: { VITE_GMAIL_ACCESS_TOKEN: 'dev-token' },
+        dbHandle: handle,
+        settingsStorage: memoryStorage(),
+      });
+
+      await expect(services.registry.resolve(GMAIL_ACCOUNT_ID).listTags()).resolves.toEqual([]);
+      expect(new Headers(fetchSpy.mock.calls[0][1]?.headers).get('authorization')).toBe(
+        'Bearer dev-token',
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });
 
 describe('story: AI is opt-in — VITE_AI_BASE_URL decides the intelligence backend', () => {
