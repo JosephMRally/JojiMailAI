@@ -37,12 +37,17 @@ The test suite is the validator in the feedback loop: run it, fix, re-run — ne
 
 ## Running tests
 
+**Default to Playwright for end-to-end tests; use vitest for unit tests.**
+
 ```
-.venv/bin/python -m pytest bridge/tests/ -q   # Python bridge
-npx vitest run                                 # all TypeScript layers (providers, intelligence, store, plugins, UI)
+npx playwright test                            # End-to-end tests (default, if possible)
+npx vitest run                                 # Unit tests (TypeScript layers: providers, intelligence, store, plugins, UI)
+.venv/bin/python -m pytest bridge/tests/ -q   # Python bridge unit tests
 ```
 
 Use `.venv/bin/python` — pytest is installed in the project venv, not globally.
+
+When writing new tests: prefer Playwright for features with a UI component; use vitest for pure logic, interfaces, and internal contracts. Playwright tests are the ground truth for user-facing behavior; vitest tests validate the contracts beneath them.
 
 ## Change order: always follow this sequence
 
@@ -57,6 +62,6 @@ This order — spec → user stories → tests → code — ensures the spec dri
 
 ## Other rules
 
-- Do not run the app or the bridge against the live mailbox unless explicitly asked — "do not execute" in the specs refers to live runs; running pytest/vitest is always fine.
-- Bridge tests must mock the `simplegmail` `Gmail` client (the JosephMRally fork); provider tests mock `fetch`; intelligence tests mock the OpenAI-compatible client (no test may require a running Ollama/vLLM/LM Studio server); store tests run against an in-memory sql.js database (never the native plugin or filesystem); plugin tests use in-memory settings and fixture plug-ins; UI tests use the in-memory `FakeProvider`, `FakeIntelligence`, `FakeMailStore`, and `FakePlugin`. No real addresses or credentials in fixtures.
+- Do not run the app or the bridge against the live mailbox unless explicitly asked — "do not execute" in the specs refers to live runs; running pytest/vitest/playwright is always fine.
+- Bridge tests must mock the `simplegmail` `Gmail` client (the JosephMRally fork); provider/intelligence/store/plugin unit tests (vitest) mock their dependencies (no test may require a running Ollama/vLLM/LM Studio server, filesystem, or live API); UI unit tests use the in-memory `FakeProvider`, `FakeIntelligence`, `FakeMailStore`, and `FakePlugin`. End-to-end tests (Playwright) drive the real in-memory stack and a browser. No real addresses or credentials in fixtures.
 - Keep the wire schema in `user-stories/python_gmail_bridge.md` and the mapping in `user-stories/typescript_gmail_proxy.md` in agreement field-for-field; change them together or not at all.
