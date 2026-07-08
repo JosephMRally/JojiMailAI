@@ -1,31 +1,104 @@
 /**
  * Build script stories (user-stories/typescript_email_ui.md):
- * - story (engineer): the build script writes the chosen provider to .env.local
- *   so `npm run dev` uses it without manual re-entry.
+ * - story (engineer): the build script spawns `tsc -b`, then `vite build` with
+ *   VITE_MAIL_PROVIDER set to the chosen id, and finally writes
+ *   `VITE_MAIL_PROVIDER=<id>` to .env.local so the next `npm run dev` uses it;
+ * - story (engineer): a missing or unknown --provider throws before any
+ *   compilation starts — the exception paths are tested without running a
+ *   real build.
+ *
+ * The orchestration lives in scripts/runBuild.mjs as runBuild(argv, io) with
+ * injected effects (io.run/io.writeFile/io.log); scripts/build.mjs is the thin
+ * entry that supplies the real spawnSync/writeFileSync.
  */
 import { describe, expect, it, vi } from 'vitest';
-import fs from 'node:fs';
+import { runBuild } from '../../scripts/runBuild.mjs';
 
-// Test the core behavior: after a build resolves the provider flag, .env.local
-// is written with VITE_MAIL_PROVIDER set to that provider.
-describe('story: the build script records the provider to .env.local for dev mode', () => {
-  it('the resolved provider is written to .env.local as VITE_MAIL_PROVIDER', () => {
-    const writeFileSpy = vi.spyOn(fs, 'writeFileSync').mockReturnValue(undefined);
+interface RecordedStep {
+  command: string;
+  args: string[];
+  extraEnv: Record<string, string>;
+}
 
-    // Simulate what the build script does after resolving the provider.
-    // In the real script, this happens after tsc/vite have run successfully.
-    const provider = 'gmail';
-    fs.writeFileSync('.env.local', `VITE_MAIL_PROVIDER=${provider}\n`);
+function fakeIo(statuses: Array<number | null> = [0, 0]) {
+  const steps: RecordedStep[] = [];
+  const writes: Array<{ path: string; content: string }> = [];
+  let call = 0;
+  return {
+    steps,
+    writes,
+    io: {
+      run: vi.fn((command: string, args: string[], extraEnv: Record<string, string>) => {
+        steps.push({ command, args, extraEnv });
+        return call < statuses.length ? statuses[call++] : 0;
+      }),
+      writeFile: vi.fn((path: string, content: string) => {
+        writes.push({ path, content });
+      }),
+      log: vi.fn(),
+    },
+  };
+}
 
-    expect(writeFileSpy).toHaveBeenCalledWith('.env.local', 'VITE_MAIL_PROVIDER=gmail\n');
+describe('story: a missing or unknown --provider throws before any compilation starts', () => {
+  it('a missing flag throws and neither compiler nor .env.local is touched', () => {
+    const { io, steps, writes } = fakeIo();
+    expect(() => runBuild([], io)).toThrow(/--provider/);
+    expect(steps).toEqual([]);
+    expect(writes).toEqual([]);
   });
 
-  it('fake provider is recorded the same way', () => {
-    const writeFileSpy = vi.spyOn(fs, 'writeFileSync').mockReturnValue(undefined);
-
-    const provider = 'fake';
-    fs.writeFileSync('.env.local', `VITE_MAIL_PROVIDER=${provider}\n`);
-
-    expect(writeFileSpy).toHaveBeenCalledWith('.env.local', 'VITE_MAIL_PROVIDER=fake\n');
+  it('an unknown provider throws, listing the known ids, before any step runs', () => {
+    const { io, steps, writes } = fakeIo();
+    expect(() => runBuild(['--provider=aol'], io)).toThrow(/(?=.*aol)(?=.*gmail)(?=.*fake)/s);
+    expect(steps).toEqual([]);
+    expect(writes).toEqual([]);
   });
 });
+
+describe('story: the build spawns tsc -b, then vite build with VITE_MAIL_PROVIDER set', () => {
+  it('runs the two steps in order with the chosen id in the vite step env', () => {
+    const { io, steps } = fakeIo();
+    runBuild(['--provider=fake'], io);
+    expect(steps).toEqual([
+      { command: 'npx', args: ['tsc', '-b'], extraEnv: {} },
+      { command: 'npx', args: ['vite', 'build'], extraEnv: { VITE_MAIL_PROVIDER: 'fake' } },
+    ]);
+  });
+
+  it('returns the failing step status and stops — vite never runs after a tsc failure', () => {
+    const { io, steps, writes } = fakeIo([2]);
+    expect(runBuild(['--provider=gmail'], io)).toBe(2);
+    expect(steps).toHaveLength(1);
+    expect(writes).toEqual([]);
+  });
+
+  it('a null step status (spawn failure) maps to a non-zero exit', () => {
+    const { io } = fakeIo([null]);
+    expect(runBuild(['--provider=gmail'], io)).toBe(1);
+  });
+});
+
+describe('story: the build finally writes VITE_MAIL_PROVIDER=<id> to .env.local', () => {
+  it('a successful build records the chosen provider for the next npm run dev', () => {
+    const { io, writes } = fakeIo();
+    expect(runBuild(['--provider=fake'], io)).toBe(0);
+    expect(writes).toEqual([{ path: '.env.local', content: 'VITE_MAIL_PROVIDER=fake\n' }]);
+  });
+
+  it('.env.local reflects whichever known provider was chosen', () => {
+    const { io, writes } = fakeIo();
+    runBuild(['--provider=gmail'], io);
+    expect(writes).toEqual([{ path: '.env.local', content: 'VITE_MAIL_PROVIDER=gmail\n' }]);
+  });
+
+  it('a failed vite step writes nothing — .env.local never lies about a build that did not ship', () => {
+    const { io, writes } = fakeIo([0, 1]);
+    expect(runBuild(['--provider=fake'], io)).toBe(1);
+    expect(writes).toEqual([]);
+  });
+});
+
+// The package.json → build.mjs → runBuild.mjs routing is pinned in
+// tests/ui/shell.test.ts ("one command path from source to something cap
+// sync can package").

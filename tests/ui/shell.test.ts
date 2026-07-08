@@ -16,7 +16,7 @@ const mainSources = import.meta.glob('/src/main.tsx', {
   import: 'default',
 }) as Record<string, string>;
 
-const buildSources = import.meta.glob('/scripts/build.mjs', {
+const buildSources = import.meta.glob(['/scripts/build.mjs', '/scripts/runBuild.mjs'], {
   eager: true,
   query: '?raw',
   import: 'default',
@@ -55,9 +55,11 @@ describe('story: the Capacitor shell wraps the same tested web build', () => {
 describe('story: one command path from source to something cap sync can package', () => {
   it('routes the package.json build script through the provider-flag build script, which runs vite build', () => {
     expect(pkg.scripts.build).toContain('scripts/build.mjs');
-    const buildScript = buildSources['/scripts/build.mjs'] ?? '';
-    expect(buildScript).toContain('vite');
-    expect(buildScript).toContain('build');
-    expect(buildScript).toContain('resolveProviderFlag'); // missing flag throws before compiling
+    const entry = buildSources['/scripts/build.mjs'] ?? '';
+    expect(entry).toContain('runBuild'); // thin entry delegates to the tested orchestration
+    const orchestration = buildSources['/scripts/runBuild.mjs'] ?? '';
+    expect(orchestration).toContain('vite');
+    expect(orchestration).toContain('build');
+    expect(orchestration).toContain('resolveProviderFlag'); // missing flag throws before compiling
   });
 });
