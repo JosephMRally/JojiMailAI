@@ -5,9 +5,11 @@
  * `--provider=<id>` flag — `npm run build -- --provider=gmail` — and throws
  * before any compilation starts when it is missing or unknown. The chosen id
  * reaches the app as VITE_MAIL_PROVIDER, which the composition root uses to
- * register exactly that provider.
+ * register exactly that provider. The provider is also written to .env.local
+ * so `npm run dev` uses it without manual re-entry.
  */
 import { spawnSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
 import { resolveProviderFlag } from './providerFlag.mjs';
 
 const provider = resolveProviderFlag(process.argv.slice(2)); // throws on bad/missing flag
@@ -24,3 +26,7 @@ function run(command, args, extraEnv = {}) {
 console.log(`Building for provider: ${provider}`);
 run('npx', ['tsc', '-b']);
 run('npx', ['vite', 'build'], { VITE_MAIL_PROVIDER: provider });
+
+// Write provider choice to .env.local so dev mode uses it
+writeFileSync('.env.local', `VITE_MAIL_PROVIDER=${provider}\n`);
+console.log(`Recorded provider in .env.local for dev mode`);

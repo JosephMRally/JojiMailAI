@@ -1,4 +1,8 @@
 # JojiMailAI
+
+<h2>JojiMailAI allows the average human to customize their own email client to do what they want,
+no programming skills are needed. The only language you need to know is English!</h2>
+
 Humans shouldn't code - they make mistakes
 
 A cross-platform email client — iOS, Android, and web all from one codebase — built as a
