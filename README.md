@@ -157,6 +157,12 @@ To add a new provider: implement the `MailProvider` interface (see
 `KNOWN_PROVIDERS` in `scripts/providerFlag.mjs`, and register it in the
 composition root's provider map (`src/composition.ts`). The UI changes not at all.
 
+**Dev server workflow**: The build script records your provider choice to `.env.local`,
+so `npm run dev` uses it automatically — no need to set environment variables each time.
+If the dev server is already running when you build, restart it with Ctrl+C then `npm run dev`
+to pick up the new `.env.local`. Alternatively, set `VITE_MAIL_PROVIDER=fake npm run dev` to
+override without rebuilding.
+
 ### Build the native shells (first time only)
 
 ```
