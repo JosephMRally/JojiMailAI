@@ -21,6 +21,7 @@ from typing import Literal, Optional
 
 from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, model_validator
 
@@ -250,6 +251,18 @@ def create_app(
         )
 
     app = FastAPI(title="JojiMailAI Gmail bridge")
+    # The app runs at a different origin than the bridge (Vite dev server on
+    # localhost:5173, capacitor://localhost in the shells), so the webview
+    # blocks responses without CORS headers. Allow only local app origins —
+    # never remote sites, which could otherwise read the mailbox from any
+    # page open in the user's browser.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"^(capacitor|ionic)://localhost$"
+        r"|^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     state = {"gmail": None}
 
     def gmail():

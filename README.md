@@ -71,16 +71,28 @@ are needed only for device builds.
 
 ```
 npm install                                   # TypeScript app + test toolchain
-python3 -m venv .venv                         # Python env for the bridge
-.venv/bin/pip install fastapi httpx pytest    # bridge + its test suite
-.venv/bin/pip install uvicorn                 # only to run the bridge; tests never need it
+uv venv                                       # Python env for the bridge
+uv pip install fastapi httpx pytest           # bridge + its test suite
+uv pip install uvicorn                        # only to run the bridge; tests never need it
 ```
 
 The bridge imports `simplegmail` lazily, so tests never need it. Install it (the
 JosephMRally fork) only when you want to run the bridge against real Gmail:
 
 ```
-.venv/bin/pip install "git+https://github.com/JosephMRally/simplegmail"
+uv pip install "git+https://github.com/JosephMRally/simplegmail"
+```
+
+The web build of SQLite (`jeep-sqlite`) loads `public/assets/sql-wasm.wasm` at
+runtime. The copy checked into the repo comes from **sql.js 1.11.0** — the version
+`jeep-sqlite`'s bundled glue code was compiled against. Do not replace it with the
+wasm from the hoisted `node_modules/sql.js` (currently 1.14.x): the imports won't
+match and the app aborts on startup with a WebAssembly `LinkError`. If the file is
+ever missing, restore it with:
+
+```
+npm pack sql.js@1.11.0 && tar -xzf sql.js-1.11.0.tgz package/dist/sql-wasm.wasm \
+  && mv package/dist/sql-wasm.wasm public/assets/ && rm -r package sql.js-1.11.0.tgz
 ```
 
 **Verify the setup** before building: both test suites must pass (see Running tests).
