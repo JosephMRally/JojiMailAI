@@ -16,6 +16,12 @@ const mainSources = import.meta.glob('/src/main.tsx', {
   import: 'default',
 }) as Record<string, string>;
 
+const buildSources = import.meta.glob('/scripts/build.mjs', {
+  eager: true,
+  query: '?raw',
+  import: 'default',
+}) as Record<string, string>;
+
 describe('story: the Capacitor shell wraps the same tested web build', () => {
   it('sets appId, appName, and webDir to the Vite build output', () => {
     expect(capacitorConfig.appId).toBe('com.jojimail.app');
@@ -47,7 +53,11 @@ describe('story: the Capacitor shell wraps the same tested web build', () => {
 });
 
 describe('story: one command path from source to something cap sync can package', () => {
-  it('wires vite build into the package.json build script', () => {
-    expect(pkg.scripts.build).toContain('vite build');
+  it('routes the package.json build script through the provider-flag build script, which runs vite build', () => {
+    expect(pkg.scripts.build).toContain('scripts/build.mjs');
+    const buildScript = buildSources['/scripts/build.mjs'] ?? '';
+    expect(buildScript).toContain('vite');
+    expect(buildScript).toContain('build');
+    expect(buildScript).toContain('resolveProviderFlag'); // missing flag throws before compiling
   });
 });

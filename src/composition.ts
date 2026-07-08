@@ -64,10 +64,7 @@ export function composeApp(options: CompositionOptions): AppServices {
   const env = options.env ?? (import.meta.env as unknown as EnvLike);
 
   const registry = new ProviderRegistry();
-  registry.register(
-    GMAIL_ACCOUNT_ID,
-    new GmailProvider({ getAccessToken: options.gmailAuth ?? defaultGmailAuth(env) }),
-  );
+  registerSelectedProvider(registry, env, options);
 
   const store: MailStore = new SqliteMailStore(options.dbHandle);
 
@@ -77,6 +74,38 @@ export function composeApp(options: CompositionOptions): AppServices {
   }
 
   return { registry, intelligence: composeIntelligence(env), store, pluginHost };
+}
+
+/**
+ * The known-provider map behind VITE_MAIL_PROVIDER (set by
+ * `npm run build -- --provider=<id>` via scripts/build.mjs): the built
+ * bundle registers exactly the platform it was built for. New platforms add
+ * one entry here and one id in scripts/providerFlag.mjs. Unset (dev mode)
+ * defaults to gmail; an unknown value fails loudly at startup instead of
+ * silently shipping the wrong provider.
+ */
+function registerSelectedProvider(
+  registry: ProviderRegistry,
+  env: EnvLike,
+  options: CompositionOptions,
+): void {
+  const known: Record<string, () => void> = {
+    gmail: () =>
+      registry.register(
+        GMAIL_ACCOUNT_ID,
+        new GmailProvider({ getAccessToken: options.gmailAuth ?? defaultGmailAuth(env) }),
+      ),
+  };
+
+  const selected = (env.VITE_MAIL_PROVIDER ?? '').trim() || 'gmail';
+  const register = known[selected];
+  if (!register) {
+    throw new Error(
+      `Unknown VITE_MAIL_PROVIDER "${selected}". Known providers: ${Object.keys(known).join(', ')}. ` +
+        'Build with `npm run build -- --provider=<id>`.',
+    );
+  }
+  register();
 }
 
 /**

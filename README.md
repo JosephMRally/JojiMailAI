@@ -131,8 +131,13 @@ npm pack sql.js@1.11.0 && tar -xzf sql.js-1.11.0.tgz package/dist/sql-wasm.wasm 
 ### Build the web app
 
 ```
-npm run build      # type-checks (tsc -b) and bundles with Vite into dist/
+npm run build -- --provider=gmail   # type-checks (tsc -b) and bundles with Vite into dist/
 ```
+
+The `--provider` flag is required: a production bundle must state which mail
+platform it ships (currently `gmail`). Building without it — or with an unknown
+id — fails immediately with an error listing the known providers, before any
+compilation starts.
 
 ### Build the native shells (first time only)
 
@@ -179,7 +184,7 @@ npm run dev
 On a device or simulator:
 
 ```
-npm run build
+npm run build -- --provider=gmail
 npx cap sync
 npx cap run ios      # or: npx cap run android
 ```

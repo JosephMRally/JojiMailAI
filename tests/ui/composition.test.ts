@@ -112,6 +112,36 @@ describe('story: one composition-root module wires every concrete backend', () =
   });
 });
 
+describe('story: the composition root registers the provider named by VITE_MAIL_PROVIDER', () => {
+  it('VITE_MAIL_PROVIDER=gmail registers the GmailProvider under the gmail account id', () => {
+    const { handle } = recordingDbHandle();
+    const services = composeApp({
+      env: { VITE_MAIL_PROVIDER: 'gmail' },
+      dbHandle: handle,
+      settingsStorage: memoryStorage(),
+    });
+    expect(services.registry.listAccounts()).toEqual([GMAIL_ACCOUNT_ID]);
+    expect(services.registry.resolve(GMAIL_ACCOUNT_ID)).toBeInstanceOf(GmailProvider);
+  });
+
+  it('an unset VITE_MAIL_PROVIDER defaults to gmail (dev mode)', () => {
+    const { handle } = recordingDbHandle();
+    const services = composeApp({ env: {}, dbHandle: handle, settingsStorage: memoryStorage() });
+    expect(services.registry.resolve(GMAIL_ACCOUNT_ID)).toBeInstanceOf(GmailProvider);
+  });
+
+  it('an unknown VITE_MAIL_PROVIDER throws at startup, listing the known ids', () => {
+    const { handle } = recordingDbHandle();
+    expect(() =>
+      composeApp({
+        env: { VITE_MAIL_PROVIDER: 'aol' },
+        dbHandle: handle,
+        settingsStorage: memoryStorage(),
+      }),
+    ).toThrow(/aol.*gmail|gmail.*aol/s);
+  });
+});
+
 describe('story: AI is opt-in — VITE_AI_BASE_URL decides the intelligence backend', () => {
   it('an unset VITE_AI_BASE_URL selects NoOpIntelligence: the app works with zero server setup', async () => {
     const { handle } = recordingDbHandle();
