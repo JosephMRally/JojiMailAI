@@ -46,12 +46,12 @@ level deep from here:
 
 | Component | Spec | Read when |
 |---|---|---|
-| `MailProvider` interface, model, registry — the generalized provider skill and family index | [user-stories/typescript_mail_provider.md](user-stories/typescript_mail_provider.md) | Touching the shared contract or model types, or adding a mail platform (load it alongside the one per-provider spec you are working on) |
-| `FakeProvider` (in-memory reference) | [user-stories/typescript_fake_provider.md](user-stories/typescript_fake_provider.md) | Touching the fake or tests that seed it |
-| Gmail bridge (`bridge/app.py`) | [user-stories/python_gmail_bridge.md](user-stories/python_gmail_bridge.md) | Touching the Python facade or wire schema |
-| `GmailProvider` proxy | [user-stories/typescript_gmail_proxy.md](user-stories/typescript_gmail_proxy.md) | Touching the app-side Gmail integration |
-| `YahooProvider` (future — no code) | [user-stories/typescript_yahoo_provider.md](user-stories/typescript_yahoo_provider.md) | Designing or building Yahoo support |
-| `MicrosoftProvider` (future — no code) | [user-stories/typescript_microsoft_provider.md](user-stories/typescript_microsoft_provider.md) | Designing or building Outlook/Microsoft 365 support |
+| `MailProvider` interface, model, registry — the generalized provider skill and family index | [user-stories/providers/typescript_mail_provider.md](user-stories/providers/typescript_mail_provider.md) | Touching the shared contract or model types, or adding a mail platform (load it alongside the one per-provider spec you are working on) |
+| `FakeProvider` (in-memory reference) | [user-stories/providers/typescript_fake_provider.md](user-stories/providers/typescript_fake_provider.md) | Touching the fake or tests that seed it |
+| Gmail bridge (`bridge/app.py`) | [user-stories/providers/python_gmail_bridge.md](user-stories/providers/python_gmail_bridge.md) | Touching the Python facade or wire schema |
+| `GmailProvider` proxy | [user-stories/providers/typescript_gmail_proxy.md](user-stories/providers/typescript_gmail_proxy.md) | Touching the app-side Gmail integration |
+| `YahooProvider` (future — no code) | [user-stories/providers/typescript_yahoo_provider.md](user-stories/providers/typescript_yahoo_provider.md) | Designing or building Yahoo support |
+| `MicrosoftProvider` (future — no code) | [user-stories/providers/typescript_microsoft_provider.md](user-stories/providers/typescript_microsoft_provider.md) | Designing or building Outlook/Microsoft 365 support |
 | `MailIntelligence` + `LocalIntelligence` | [user-stories/typescript_mail_intelligence.md](user-stories/typescript_mail_intelligence.md) | Touching the self-hosted AI layer |
 | `MailStore` + `SqliteMailStore` (SQLite + Bloom search) | [user-stories/typescript_mail_store.md](user-stories/typescript_mail_store.md) | Touching local storage, offline, or text search |
 | `MailPlugin` + `PluginHost` (extension points) | [user-stories/typescript_plugin_system.md](user-stories/typescript_plugin_system.md) | Touching plug-ins, extension points, or their settings |
@@ -171,17 +171,17 @@ Build Progress:
 - [ ] 10. README.md written
 ```
 
-1.  Execute TDD loop for `src/providers/` per `user-stories/typescript_mail_provider.md` and `user-stories/typescript_fake_provider.md` (the in-memory reference implementation built in the same step)
-2.  Execute TDD loop for `bridge/app.py` per `user-stories/python_gmail_bridge.md`
-3.  Execute TDD loop for `src/providers/gmail/GmailProvider.ts` per `user-stories/typescript_gmail_proxy.md`
+1.  Execute TDD loop for `src/providers/` per `user-stories/providers/typescript_mail_provider.md` and `user-stories/providers/typescript_fake_provider.md` (the in-memory reference implementation built in the same step)
+2.  Execute TDD loop for `bridge/app.py` per `user-stories/providers/python_gmail_bridge.md`
+3.  Execute TDD loop for `src/providers/gmail/GmailProvider.ts` per `user-stories/providers/typescript_gmail_proxy.md`
 4.  Execute TDD loop for `src/intelligence/` per `user-stories/typescript_mail_intelligence.md`
 5.  Execute TDD loop for `src/store/` per `user-stories/typescript_mail_store.md`
 6.  Execute TDD loop for `src/plugins/` per `user-stories/typescript_plugin_system.md`
 7.  Execute TDD loop for the UI and Capacitor shell per `user-stories/typescript_email_ui.md`
 8.  Review all seven components and confirm they meet the requirements in their
     respective .md files, including that the wire schema in
-    `user-stories/python_gmail_bridge.md` and the mapping in
-    `user-stories/typescript_gmail_proxy.md` agree field-for-field, and that every
+    `user-stories/providers/python_gmail_bridge.md` and the mapping in
+    `user-stories/providers/typescript_gmail_proxy.md` agree field-for-field, and that every
     AI-, store-, and plug-in-driven UI flow works against the fakes alone.
 9.  Verify any remaining edge cases (e.g., empty mailbox, message with no
     `Date` header, HTML-only body, expired OAuth token, inference server
