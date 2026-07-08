@@ -1,4 +1,7 @@
 # Typescript gmail proxy
+
+Status: built — `src/providers/gmail/GmailProvider.ts`. This skill documents required behavior; the generalized contract every provider satisfies lives in `typescript_mail_provider.md`.
+
 ## Function
 Create `src/providers/gmail/GmailProvider.ts`; do not execute! This class is the **first concrete Proxy** behind the `MailProvider` interface: a local surrogate for the remote Gmail server that fulfills every interface method by delegating over HTTP to the Python bridge (`python_gmail_bridge.md`), which wraps `simplegmail`. The UI never sees this class — it resolves it from the `ProviderRegistry` as a plain `MailProvider`. All Gmail-specific knowledge in the app (bridge URL, wire schema, error mapping) lives in this one directory.
 

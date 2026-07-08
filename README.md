@@ -45,9 +45,12 @@ generated from its spec:
 | File | Role |
 |------|------|
 | `SKILL.md` | The overall process and architecture: components, TDD loop, order of operations |
-| `user-stories/typescript_mail_provider.md` | Spec: `MailProvider` interface, shared model, `ProviderRegistry` |
+| `user-stories/typescript_mail_provider.md` | Spec: `MailProvider` interface, shared model, `ProviderRegistry` — the generalized skill every provider follows, with the provider-family index |
+| `user-stories/typescript_fake_provider.md` | Spec: `FakeProvider`, the in-memory reference implementation tests seed |
 | `user-stories/python_gmail_bridge.md` | Spec: the local Gmail bridge service |
 | `user-stories/typescript_gmail_proxy.md` | Spec: `GmailProvider`, the first concrete proxy |
+| `user-stories/typescript_yahoo_provider.md` | Spec (future): `YahooProvider` over IMAP/SMTP — no code yet |
+| `user-stories/typescript_microsoft_provider.md` | Spec (future): `MicrosoftProvider` over Microsoft Graph — no code yet |
 | `user-stories/typescript_mail_intelligence.md` | Spec: `MailIntelligence` + `LocalIntelligence`, the self-hosted AI core |
 | `user-stories/typescript_mail_store.md` | Spec: `MailStore` + `SqliteMailStore`, offline storage and Bloom-filter search |
 | `user-stories/typescript_plugin_system.md` | Spec: `MailPlugin` + `PluginHost`, typed crash-isolated extension points |
@@ -197,6 +200,11 @@ Tests are fully mocked — nothing touches a real account or the network.
 Implement the `MailProvider` interface and register the provider at the composition
 root. That's the whole job — no UI changes, ever. The UI renders whatever the
 interface returns and hides anything the provider's `capabilities()` doesn't support.
+
+The process, template, and rules every provider must satisfy live in
+`user-stories/typescript_mail_provider.md` (the generalized provider skill), which
+indexes one spec per provider — including design specs for platforms not yet built
+(Yahoo over IMAP, Microsoft over Graph).
 
 ## Extending with plug-ins
 

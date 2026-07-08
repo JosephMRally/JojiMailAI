@@ -18,7 +18,7 @@ description: >
 # Capacitor Email Client (MailProvider proxies → Gmail bridge · self-hosted AI · SQLite + Bloom store · web UI)
 Humans shouldn't program - they make too many mistakes
 
-This skill was designed as a POC to run in Claude Code. Only generate code; never run
+This skill was designed as a POC to run in Claude Code with an effort of ultracode. Only generate code; never run
 the pipeline against a live mailbox — "do not execute" means live runs, and
 running pytest/vitest is always fine. Follow Skill Driven Development (SDD:
 the user-story specs under `user-stories/` are the single source of truth —
@@ -46,9 +46,12 @@ level deep from here:
 
 | Component | Spec | Read when |
 |---|---|---|
-| `MailProvider` interface, model, registry | [user-stories/typescript_mail_provider.md](user-stories/typescript_mail_provider.md) | Touching the shared contract or model types |
+| `MailProvider` interface, model, registry — the generalized provider skill and family index | [user-stories/typescript_mail_provider.md](user-stories/typescript_mail_provider.md) | Touching the shared contract or model types, or adding a mail platform (load it alongside the one per-provider spec you are working on) |
+| `FakeProvider` (in-memory reference) | [user-stories/typescript_fake_provider.md](user-stories/typescript_fake_provider.md) | Touching the fake or tests that seed it |
 | Gmail bridge (`bridge/app.py`) | [user-stories/python_gmail_bridge.md](user-stories/python_gmail_bridge.md) | Touching the Python facade or wire schema |
 | `GmailProvider` proxy | [user-stories/typescript_gmail_proxy.md](user-stories/typescript_gmail_proxy.md) | Touching the app-side Gmail integration |
+| `YahooProvider` (future — no code) | [user-stories/typescript_yahoo_provider.md](user-stories/typescript_yahoo_provider.md) | Designing or building Yahoo support |
+| `MicrosoftProvider` (future — no code) | [user-stories/typescript_microsoft_provider.md](user-stories/typescript_microsoft_provider.md) | Designing or building Outlook/Microsoft 365 support |
 | `MailIntelligence` + `LocalIntelligence` | [user-stories/typescript_mail_intelligence.md](user-stories/typescript_mail_intelligence.md) | Touching the self-hosted AI layer |
 | `MailStore` + `SqliteMailStore` (SQLite + Bloom search) | [user-stories/typescript_mail_store.md](user-stories/typescript_mail_store.md) | Touching local storage, offline, or text search |
 | `MailPlugin` + `PluginHost` (extension points) | [user-stories/typescript_plugin_system.md](user-stories/typescript_plugin_system.md) | Touching plug-ins, extension points, or their settings |
@@ -64,7 +67,7 @@ Capacitor shell (iOS / Android / web)
 React UI ──▶ MailProvider (interface, via ProviderRegistry)
               ◀── GmailProvider ──HTTP 127.0.0.1──▶ bridge/app.py ──▶ Gmail API
                    (remote proxy)                    (Python facade over `simplegmail`)
-              ◀── future: ImapProvider, OutlookProvider
+              ◀── future: YahooProvider, MicrosoftProvider
               ◀── FakeProvider (tests)
 
 React UI ──▶ MailIntelligence (interface)
@@ -168,7 +171,7 @@ Build Progress:
 - [ ] 10. README.md written
 ```
 
-1.  Execute TDD loop for `src/providers/` per `user-stories/typescript_mail_provider.md`
+1.  Execute TDD loop for `src/providers/` per `user-stories/typescript_mail_provider.md` and `user-stories/typescript_fake_provider.md` (the in-memory reference implementation built in the same step)
 2.  Execute TDD loop for `bridge/app.py` per `user-stories/python_gmail_bridge.md`
 3.  Execute TDD loop for `src/providers/gmail/GmailProvider.ts` per `user-stories/typescript_gmail_proxy.md`
 4.  Execute TDD loop for `src/intelligence/` per `user-stories/typescript_mail_intelligence.md`
