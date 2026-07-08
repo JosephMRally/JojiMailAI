@@ -1,0 +1,107 @@
+{
+  "tags": [
+    {
+      "tagId": "inbox",
+      "name": "Inbox",
+      "unreadCount": 2
+    },
+    {
+      "tagId": "work",
+      "name": "Work",
+      "unreadCount": 1
+    },
+    {
+      "tagId": "starred",
+      "name": "Starred"
+    },
+    {
+      "tagId": "sent",
+      "name": "Sent"
+    },
+    {
+      "tagId": "trash",
+      "name": "Trash"
+    }
+  ],
+  "messages": [
+    {
+      "messageId": "m1",
+      "threadId": "t1",
+      "from": "alice@example.com",
+      "to": ["me@example.com"],
+      "cc": [],
+      "bcc": [],
+      "subject": "Quarterly report",
+      "date": 1735734000000,
+      "bodyPlain": "Please review the attached quarterly report.",
+      "unread": false,
+      "tagIds": ["inbox", "work"]
+    },
+    {
+      "messageId": "m2",
+      "threadId": "t1",
+      "from": "bob@example.com",
+      "to": ["me@example.com"],
+      "cc": ["carol@example.com"],
+      "bcc": [],
+      "subject": "Re: Quarterly report",
+      "date": 1735738200000,
+      "bodyPlain": "Looks good to me.",
+      "bodyHtml": "<p>Looks good to me.</p>",
+      "unread": true,
+      "tagIds": ["inbox", "work", "starred"]
+    },
+    {
+      "messageId": "m3",
+      "threadId": "t2",
+      "from": "news@example.com",
+      "to": ["me@example.com"],
+      "cc": [],
+      "bcc": [],
+      "subject": "Weekly digest",
+      "date": 1735820400000,
+      "bodyHtml": "<h1>Weekly digest</h1><p>Top stories this week.</p>",
+      "unread": true,
+      "tagIds": ["inbox"]
+    },
+    {
+      "messageId": "m4",
+      "threadId": "t3",
+      "from": "dave@example.com",
+      "to": ["me@example.com"],
+      "cc": [],
+      "bcc": [],
+      "subject": "Lunch on Friday?",
+      "date": 1735906800000,
+      "bodyPlain": "Want to grab lunch on Friday?",
+      "unread": false,
+      "tagIds": ["inbox"]
+    },
+    {
+      "messageId": "m5",
+      "threadId": "t4",
+      "from": "erin@example.com",
+      "to": ["me@example.com"],
+      "cc": [],
+      "bcc": [],
+      "subject": "Build is passing again",
+      "date": 1735993200000,
+      "bodyPlain": "The main branch build is green again.",
+      "unread": false,
+      "tagIds": ["inbox"]
+    },
+    {
+      "messageId": "m6",
+      "threadId": "t5",
+      "from": "frank@example.com",
+      "to": ["me@example.com"],
+      "cc": [],
+      "bcc": ["grace@example.com"],
+      "subject": "Invoice #42",
+      "date": 1736079600000,
+      "bodyPlain": "Invoice #42 is attached. Payment due in 30 days.",
+      "unread": false,
+      "tagIds": ["inbox"]
+    }
+  ]
+}
