@@ -17,10 +17,11 @@ All mail access goes through the **Proxy pattern**: the UI talks only to the `Ma
 
 ## TDD is mandatory
 
-When executing or re-executing any `user-stories/*.md` spec — including small schema changes to already-working code — copy this checklist into your response and check items off as you go:
+When executing or re-executing any `user-stories/*.md` spec — including small schema changes to already-working code, and including test-only changes — copy this checklist into your response and check items off as you go. Always author or update a user story before writing any code, **even a test**:
 
 ```
 TDD Progress (<component>):
+- [ ] Story: a user story covering this change exists in a user-stories/*.md spec — write or refine it first, even when the only code will be a test
 - [ ] Red: tests derived from the spec's user stories, run and observed failing
 - [ ] Green: minimum implementation, full suite passing
 - [ ] Refactor: cleaned up, suite still green
@@ -28,10 +29,11 @@ TDD Progress (<component>):
 - [ ] Commit
 ```
 
-1. **Red**: translate the changed user stories into tests only (no edits under `src/` or `bridge/`), run the tests, and show the failing output.
-2. **Green**: write the minimum implementation to make those tests pass; change nothing the tests don't force.
-3. **Refactor** on green, keeping tests passing.
-4. Commit after each green so the next cycle has a baseline to demonstrate red against.
+1. **Story**: ensure a user story covering the change lives in a `user-stories/*.md` spec — write or refine it before touching anything else. Holds even when the only code you plan to write is a test: tests derive from user stories, so a test with no backing story means the story is missing — add it first.
+2. **Red**: translate the changed user stories into tests only (no edits under `src/` or `bridge/`), run the tests, and show the failing output.
+3. **Green**: write the minimum implementation to make those tests pass; change nothing the tests don't force.
+4. **Refactor** on green, keeping tests passing.
+5. Commit after each green so the next cycle has a baseline to demonstrate red against.
 
 The test suite is the validator in the feedback loop: run it, fix, re-run — never move to the next checklist item or component while it fails. Never edit implementation and tests in the same step.
 
@@ -51,14 +53,14 @@ When writing new tests: prefer Playwright for features with a UI component; use 
 
 ## Change order: always follow this sequence
 
-When implementing a feature or fixing a behavior:
+When implementing a feature, fixing a behavior, or adding a test:
 
 1. **Skills** — Update `SKILL.md` or a `user-stories/*.md` spec first. Change the spec before changing code. If requirements are unclear, nail them down in the spec.
 2. **User stories** — Refine or add user-story requirements in the relevant `user-stories/*.md` file. The spec is the source of truth; tests and code follow from it.
-3. **Tests** — Write tests that derive from the spec's user stories. Run and observe them fail (Red). Never edit tests and code in the same step.
+3. **Tests** — Write tests that derive from the spec's user stories. Run and observe them fail (Red). Never edit tests and code in the same step. A test-only change is still a change: it begins at step 1 with the story it derives from, never here.
 4. **Code** — Write minimum implementation to make tests pass (Green). Refactor on green, keeping tests passing.
 
-This order — spec → user stories → tests → code — ensures the spec drives all downstream work, tests validate the spec's requirements, and code changes are safe.
+This order — spec → user stories → tests → code — ensures the spec drives all downstream work, tests validate the spec's requirements, and code changes are safe. There is no test without a user story behind it — even a test-only change starts at step 1.
 
 ## Other rules
 

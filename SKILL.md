@@ -125,18 +125,24 @@ as you complete them:
 
 ```
 TDD Progress (<component>):
+- [ ] Story: a user story covering this change exists in a user-stories/*.md spec — write or refine it first, even when the only code will be a test
 - [ ] Red: tests derived from the spec's user stories, run and observed failing
 - [ ] Green: minimum implementation, full suite passing
 - [ ] Refactor: cleaned up, suite still green
 - [ ] Commit
 ```
 
-1. **Red**: Translate the user stories into a test file only (no edits under
+1. **Story**: Ensure a user story covering the change exists in the relevant
+   `user-stories/*.md` spec — author or refine it first. Required even when the
+   only code you intend to write is a test: a test is derived from a user story,
+   so there is no test without one. Add the story before writing anything under
+   `tests/`, `src/`, or `bridge/`.
+2. **Red**: Translate the user stories into a test file only (no edits under
    `src/` or `bridge/`), run it (it must fail), and show the failure output.
-2. **Green**: Write/Edit the minimum amount of code required to make those
+3. **Green**: Write/Edit the minimum amount of code required to make those
    specific tests pass; change nothing the tests don't force.
-3. **Refactor**: Clean up on green, keeping tests passing.
-4. **Commit**: Commit after each green so the next cycle has a baseline to
+4. **Refactor**: Clean up on green, keeping tests passing.
+5. **Commit**: Commit after each green so the next cycle has a baseline to
    demonstrate red against.
 
 Never edit implementation and tests in the same step.
