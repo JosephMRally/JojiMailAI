@@ -7,7 +7,7 @@
  */
 
 /** Provider ids the app can be built for; new platforms add one entry here
- * and one in the composition root's provider map. */
+ * and one selection branch in the composition root (src/composition.ts). */
 export const KNOWN_PROVIDERS = ['gmail', 'fake'];
 
 const USAGE = 'Usage: npm run build -- --provider=<id>';

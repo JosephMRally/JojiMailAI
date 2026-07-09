@@ -14,7 +14,7 @@
  *   is not configured or empty — the app works out of the box with no server
  *   setup; a configured VITE_AI_BASE_URL selects LocalIntelligence.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { composeApp, GMAIL_ACCOUNT_ID } from '../../src/composition';
 import { FakeProvider } from '../../src/providers/FakeProvider';
 import { GmailProvider } from '../../src/providers/gmail/GmailProvider';
@@ -52,6 +52,17 @@ function memoryStorage(): { getItem(key: string): string | null; setItem(key: st
     },
   };
 }
+
+// Provider selection now branches on import.meta.env.VITE_MAIL_PROVIDER directly
+// (so a build folds the branch and ships one provider class), not on the injected
+// `env` option — which still feeds AI config. Tests set it with vi.stubEnv;
+// default every test to gmail and let selection tests override.
+beforeEach(() => {
+  vi.stubEnv('VITE_MAIL_PROVIDER', 'gmail');
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe('story: one composition-root module wires every concrete backend', () => {
   it('constructs the Gmail provider, the intelligence backend, SqliteMailStore, and PluginHost without I/O', () => {
@@ -113,33 +124,28 @@ describe('story: one composition-root module wires every concrete backend', () =
   });
 });
 
-describe('story: the composition root registers the provider named by VITE_MAIL_PROVIDER', () => {
+describe('story: the composition root selects one provider from import.meta.env.VITE_MAIL_PROVIDER', () => {
   it('VITE_MAIL_PROVIDER=gmail registers the GmailProvider under the gmail account id', () => {
+    vi.stubEnv('VITE_MAIL_PROVIDER', 'gmail');
     const { handle } = recordingDbHandle();
-    const services = composeApp({
-      env: { VITE_MAIL_PROVIDER: 'gmail' },
-      dbHandle: handle,
-      settingsStorage: memoryStorage(),
-    });
+    const services = composeApp({ env: {}, dbHandle: handle, settingsStorage: memoryStorage() });
     expect(services.registry.listAccounts()).toEqual([GMAIL_ACCOUNT_ID]);
     expect(services.registry.resolve(GMAIL_ACCOUNT_ID)).toBeInstanceOf(GmailProvider);
   });
 
   it('VITE_MAIL_PROVIDER=fake registers the FakeProvider under the fake account id', () => {
+    vi.stubEnv('VITE_MAIL_PROVIDER', 'fake');
     const { handle } = recordingDbHandle();
-    const services = composeApp({
-      env: { VITE_MAIL_PROVIDER: 'fake' },
-      dbHandle: handle,
-      settingsStorage: memoryStorage(),
-    });
+    const services = composeApp({ env: {}, dbHandle: handle, settingsStorage: memoryStorage() });
     expect(services.registry.listAccounts()).toEqual(['fake']);
     expect(services.registry.resolve('fake')).toBeInstanceOf(FakeProvider);
   });
 
   it('VITE_MAIL_PROVIDER=fake seeds the FakeProvider from the fakeFixtures option', async () => {
+    vi.stubEnv('VITE_MAIL_PROVIDER', 'fake');
     const { handle } = recordingDbHandle();
     const services = composeApp({
-      env: { VITE_MAIL_PROVIDER: 'fake' },
+      env: {},
       dbHandle: handle,
       settingsStorage: memoryStorage(),
       fakeFixtures: { tags: [{ tagId: 'demo-inbox', name: 'Inbox' }], messages: [] },
@@ -149,19 +155,17 @@ describe('story: the composition root registers the provider named by VITE_MAIL_
   });
 
   it('an unset VITE_MAIL_PROVIDER defaults to gmail (dev mode)', () => {
+    vi.stubEnv('VITE_MAIL_PROVIDER', undefined);
     const { handle } = recordingDbHandle();
     const services = composeApp({ env: {}, dbHandle: handle, settingsStorage: memoryStorage() });
     expect(services.registry.resolve(GMAIL_ACCOUNT_ID)).toBeInstanceOf(GmailProvider);
   });
 
   it('an unknown VITE_MAIL_PROVIDER throws at startup, listing the known ids', () => {
+    vi.stubEnv('VITE_MAIL_PROVIDER', 'aol');
     const { handle } = recordingDbHandle();
     expect(() =>
-      composeApp({
-        env: { VITE_MAIL_PROVIDER: 'aol' },
-        dbHandle: handle,
-        settingsStorage: memoryStorage(),
-      }),
+      composeApp({ env: {}, dbHandle: handle, settingsStorage: memoryStorage() }),
     ).toThrow(/(?=.*aol)(?=.*gmail)(?=.*fake)/s);
   });
 });

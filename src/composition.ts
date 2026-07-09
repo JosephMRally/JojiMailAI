@@ -88,11 +88,16 @@ export function composeApp(options: CompositionOptions): AppServices {
 }
 
 /**
- * The known-provider map behind VITE_MAIL_PROVIDER (set by
- * `npm run build -- --provider=<id>` via scripts/build.mjs): the built
- * bundle registers exactly the platform it was built for. New platforms add
- * one entry here and one id in scripts/providerFlag.mjs. Unset (dev mode)
- * defaults to gmail; an unknown value fails loudly at startup instead of
+ * Build-time provider selection behind VITE_MAIL_PROVIDER (set by
+ * `npm run build -- --provider=<id>` via scripts/build.mjs). The branch reads
+ * `import.meta.env.VITE_MAIL_PROVIDER` DIRECTLY — the token Vite inlines to a
+ * literal at build time — so the bundler folds the condition and tree-shakes
+ * away every provider class except the selected one: `--provider=<id>` is 1:1
+ * with the class that ships, and no demo/dead provider code rides along. (This
+ * is why selection reads import.meta.env rather than the injected `env`: a
+ * runtime value could not be folded. Tests drive it with vi.stubEnv.) New
+ * platforms add one branch here and one id in scripts/providerFlag.mjs. Unset
+ * (dev) defaults to gmail; an unknown value fails loudly at startup instead of
  * silently shipping the wrong provider.
  */
 function registerSelectedProvider(
@@ -100,24 +105,20 @@ function registerSelectedProvider(
   env: EnvLike,
   options: CompositionOptions,
 ): void {
-  const known: Record<string, () => void> = {
-    gmail: () =>
-      registry.register(
-        GMAIL_ACCOUNT_ID,
-        new GmailProvider({ getAccessToken: options.gmailAuth ?? defaultGmailAuth(env) }),
-      ),
-    fake: () => registry.register('fake', new FakeProvider(options.fakeFixtures)),
-  };
-
-  const selected = selectedProviderId(env);
-  const register = known[selected];
-  if (!register) {
+  const selected = import.meta.env.VITE_MAIL_PROVIDER;
+  if (selected === 'fake') {
+    registry.register('fake', new FakeProvider(options.fakeFixtures));
+  } else if (selected === undefined || selected === '' || selected === 'gmail') {
+    registry.register(
+      GMAIL_ACCOUNT_ID,
+      new GmailProvider({ getAccessToken: options.gmailAuth ?? defaultGmailAuth(env) }),
+    );
+  } else {
     throw new Error(
-      `Unknown VITE_MAIL_PROVIDER "${selected}". Known providers: ${Object.keys(known).join(', ')}. ` +
+      `Unknown VITE_MAIL_PROVIDER "${selected}". Known providers: gmail, fake. ` +
         'Build with `npm run build -- --provider=<id>`.',
     );
   }
-  register();
 }
 
 /**
