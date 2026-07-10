@@ -21,7 +21,7 @@ This spec is also the **generalized skill for the provider family**: everything 
 | Provider | Skill | Status | Read when |
 |---|---|---|---|
 | `FakeProvider` (in-memory reference) | [typescript_fake_provider.md](typescript_fake_provider.md) | built | Touching the fake or any test that seeds it |
-| `GmailProvider` (via Python bridge) | [typescript_gmail_proxy.md](typescript_gmail_proxy.md) | built | Touching the app-side Gmail integration |
+| `GmailProvider` (native OAuth) | [typescript_gmail_proxy.md](typescript_gmail_proxy.md) | built | Touching the app-side Gmail integration |
 | `YahooProvider` (IMAP/SMTP bridge) | [typescript_yahoo_provider.md](typescript_yahoo_provider.md) | future — no code exists | Designing or building Yahoo support |
 | `MicrosoftProvider` (Microsoft Graph) | [typescript_microsoft_provider.md](typescript_microsoft_provider.md) | future — no code exists | Designing or building Outlook/Microsoft 365 support |
 
