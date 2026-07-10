@@ -128,9 +128,11 @@ To add a new provider: implement the `MailProvider` interface (see
 `KNOWN_PROVIDERS` in `scripts/providerFlag.mjs`, and add one selection branch in
 the composition root (`src/composition.ts`). The UI changes not at all.
 
-**Dev server workflow**: `npm run dev` takes the same `--provider` flag as the build
-(no env var, no `.env.local`). `npm run dev` alone runs the default (Gmail); to run the
-in-memory demo mailbox, use `npm run dev -- --provider=vite`.
+**Dev server workflow**: `npm run build -- --provider=<id>` records the id to a plain
+`.dev-provider` file (gitignored), so a following `npm run dev` reuses it — e.g.
+`npm run build -- --provider=vite && npm run dev` serves the demo. With no prior build
+(or record), `npm run dev` defaults to Gmail; an explicit `npm run dev -- --provider=<id>`
+always wins. (No env var; Vite's `--mode` stays internal.)
 
 ### Build the native shells (first time only)
 

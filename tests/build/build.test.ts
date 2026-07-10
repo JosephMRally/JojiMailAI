@@ -1,15 +1,15 @@
 /**
  * Build script stories (user-stories/typescript_email_ui.md):
  * - story (engineer): the build script spawns `tsc -b`, then
- *   `vite build --mode <id>` so Vite's MODE carries the chosen provider — no
- *   env var, and nothing written to .env.local;
+ *   `vite build --mode <id>` (Vite's MODE carries the provider — no env var),
+ *   and records the chosen id to `.dev-provider` so npm run dev reuses it;
  * - story (engineer): a missing or unknown --provider throws before any
  *   compilation starts — the exception paths are tested without running a
  *   real build.
  *
  * The orchestration lives in scripts/runBuild.mjs as runBuild(argv, io) with
- * injected effects (io.run/io.log); scripts/build.mjs is the thin entry that
- * supplies the real spawnSync.
+ * injected effects (io.run/io.writeFile/io.log); scripts/build.mjs is the thin
+ * entry that supplies the real spawnSync/writeFileSync.
  */
 import { describe, expect, it, vi } from 'vitest';
 import { runBuild } from '../../scripts/runBuild.mjs';
@@ -79,14 +79,20 @@ describe('story: the build spawns tsc -b, then vite build --mode <id>', () => {
   });
 });
 
-describe('story: the build writes nothing beyond compiling — the flag is the only selector', () => {
-  it('a successful build produces no .env.local (or any other write)', () => {
+describe('story: a successful build records the provider to .dev-provider for npm run dev', () => {
+  it('writes the chosen id to .dev-provider', () => {
     const { io, writes } = fakeIo();
     expect(runBuild(['--provider=vite'], io)).toBe(0);
-    expect(writes).toEqual([]);
+    expect(writes).toEqual([{ path: '.dev-provider', content: 'vite\n' }]);
   });
 
-  it('a failed vite step still writes nothing', () => {
+  it('records whichever provider was chosen', () => {
+    const { io, writes } = fakeIo();
+    runBuild(['--provider=gmail'], io);
+    expect(writes).toEqual([{ path: '.dev-provider', content: 'gmail\n' }]);
+  });
+
+  it('a failed build writes nothing — .dev-provider never lies about a build that did not ship', () => {
     const { io, writes } = fakeIo([0, 1]);
     expect(runBuild(['--provider=vite'], io)).toBe(1);
     expect(writes).toEqual([]);

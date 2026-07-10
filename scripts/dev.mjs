@@ -6,6 +6,7 @@
  * this file only supplies the real process effects.
  */
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { runDev } from './runDev.mjs';
 
 const status = runDev(process.argv.slice(2), {
@@ -14,6 +15,13 @@ const status = runDev(process.argv.slice(2), {
       stdio: 'inherit',
       shell: process.platform === 'win32',
     }).status,
+  readProvider: () => {
+    try {
+      return readFileSync('.dev-provider', 'utf8');
+    } catch {
+      return null;
+    }
+  },
   log: console.log,
 });
 process.exit(status);

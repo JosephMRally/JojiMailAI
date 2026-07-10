@@ -106,8 +106,8 @@ def main() -> None:
     arrow(ax, 9.05, vite, run, "bundle emitted: one provider class, 1:1 with --provider", dashed=True)
 
     ax.text(0.45, 7.5,
-            "No .env.local and no env var — --provider is the only selector, for both build and dev. `npm run dev` defaults to gmail;\n"
-            "`npm run dev -- --provider=vite` runs the demo. In vitest both classes are present and tests pick the branch with vi.stubEnv('MODE').",
+            "The build records .dev-provider, so `npm run dev` reuses the last-built provider (else gmail); an explicit --provider wins.\n"
+            "`npm run build -- --provider=vite && npm run dev` serves the demo. In vitest both classes are present; tests pick the branch with vi.stubEnv('MODE').",
             ha="left", va="top", fontsize=8.4, color=MUTED)
 
     out = Path(__file__).resolve().parent.parent / "provider_selection_sequence.png"

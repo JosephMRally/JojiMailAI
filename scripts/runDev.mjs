@@ -1,20 +1,21 @@
 /**
  * The `npm run dev` orchestration (spec: user-stories/typescript_email_ui.md):
- * resolve --provider (default gmail; validated against KNOWN_PROVIDERS) and
- * start the Vite dev server in that provider's mode, forwarding any other args.
- * `--provider` is the one flag for both `npm run build` and `npm run dev`;
- * Vite's `--mode` is an internal detail (the composition root reads
- * import.meta.env.MODE), so developers never type it.
+ * resolve the provider — an explicit `--provider` wins, otherwise reuse the id
+ * the last `npm run build` recorded in `.dev-provider` (else gmail) — and start
+ * the Vite dev server in that provider's mode, forwarding any other args.
+ * `--provider` is the one flag for both build and dev; Vite's `--mode` is an
+ * internal detail (the composition root reads import.meta.env.MODE), never typed.
  *
  * Effects are injected via `io` so the parsing is unit-testable without a real
  * dev server:
  *   io.run(command, args) -> exit status (number | null)
+ *   io.readProvider() -> the recorded id (string) or null
  *   io.log(message)
  */
 import { KNOWN_PROVIDERS } from './providerFlag.mjs';
 
 export function runDev(argv, io) {
-  let provider = 'gmail';
+  let provider;
   const passthrough = [];
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -26,6 +27,12 @@ export function runDev(argv, io) {
     } else {
       passthrough.push(arg);
     }
+  }
+  // No explicit --provider: reuse the provider recorded by the last
+  // `npm run build` (.dev-provider), falling back to gmail.
+  if (provider === undefined) {
+    const recorded = (io.readProvider() ?? '').trim();
+    provider = KNOWN_PROVIDERS.includes(recorded) ? recorded : 'gmail';
   }
   if (!KNOWN_PROVIDERS.includes(provider)) {
     throw new Error(

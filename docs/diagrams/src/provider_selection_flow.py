@@ -66,7 +66,7 @@ def main() -> None:
     decision(ax, cx, 12.5, "known id?\n(gmail | vite)")
     process(ax, 11.5, 12.5, "throw before any\ncompilation — names the\nflag, lists the known ids",
             w=4.6, h=1.5, fill=TERMINAL)
-    process(ax, cx, 10.55, "runBuild → tsc -b, then\nvite build --mode <id>\n(Vite's MODE carries the choice; no env var, no .env.local)",
+    process(ax, cx, 10.55, "runBuild → tsc -b, then vite build --mode <id>\n(Vite's MODE carries the choice; no env var)\nand record .dev-provider for npm run dev",
             w=6.8, h=1.5)
     process(ax, cx, 8.7, "Vite replaces import.meta.env.MODE\nwith the literal \"<id>\" at build time",
             w=6.8, h=1.1)
@@ -93,8 +93,8 @@ def main() -> None:
     edge(ax, gmail_x, 3.95, 6.0, 3.1)
 
     ax.text(0.3, 1.35,
-            "Dev: `npm run dev` takes the same --provider flag → the else branch (gmail) by default; `npm run dev -- --provider=vite` runs the demo.\n"
-            "No env var, no .env.local — the flag is the only selector, validated by resolveProviderFlag before any build or dev server.",
+            "Dev: `npm run dev` reuses the provider recorded by the last build (.dev-provider), else gmail; an explicit --provider wins.\n"
+            "So `npm run build -- --provider=vite && npm run dev` serves the demo. No env var; Vite's --mode stays internal.",
             ha="left", va="top", fontsize=8.4, color=MUTED)
 
     # Legend.
