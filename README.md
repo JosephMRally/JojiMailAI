@@ -128,9 +128,9 @@ To add a new provider: implement the `MailProvider` interface (see
 `KNOWN_PROVIDERS` in `scripts/providerFlag.mjs`, and add one selection branch in
 the composition root (`src/composition.ts`). The UI changes not at all.
 
-**Dev server workflow**: the provider is chosen per command via Vite's mode — no
-env var and no `.env.local`. `npm run dev` runs the default (Gmail); to run the
-in-memory demo mailbox, use `npm run dev -- --mode vite` (equivalently `vite --mode vite`).
+**Dev server workflow**: `npm run dev` takes the same `--provider` flag as the build
+(no env var, no `.env.local`). `npm run dev` alone runs the default (Gmail); to run the
+in-memory demo mailbox, use `npm run dev -- --provider=vite`.
 
 ### Build the native shells (first time only)
 
@@ -198,7 +198,7 @@ npx vitest run                                 # unit: all TypeScript layers (pr
 ```
 
 Unit tests are fully mocked — nothing touches a real account, an OAuth flow, or the
-network. The end-to-end suite starts its own dev server with `vite --mode vite`
+network. The end-to-end suite starts its own dev server with `--provider=vite`
 and drives the demo mailbox in a real (headless) browser — still no real account.
 One-time setup for it: `npx playwright install chromium`.
 

@@ -1,10 +1,10 @@
 /**
- * Test for the npm run build -- --provider=vite && vite --mode vite workflow.
+ * Test for the npm run build -- --provider=vite && npm run dev -- --provider=vite workflow.
  * Verifies that the build creates a working app with the demo emails visible.
  */
 import { expect, test } from '@playwright/test';
 
-test('npm run build --provider=vite && vite --mode vite shows demo emails', async ({ page }) => {
+test('npm run build --provider=vite && npm run dev --provider=vite shows demo emails', async ({ page }) => {
   // Navigate to the app
   await page.goto('/');
 

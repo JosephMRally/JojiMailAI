@@ -93,8 +93,8 @@ def main() -> None:
     edge(ax, gmail_x, 3.95, 6.0, 3.1)
 
     ax.text(0.3, 1.35,
-            "Dev: `npm run dev` runs mode 'development' → the else branch (gmail); `vite --mode vite` runs the demo.\n"
-            "No env var, no .env.local — the flag is the only selector, validated by resolveProviderFlag before any build.",
+            "Dev: `npm run dev` takes the same --provider flag → the else branch (gmail) by default; `npm run dev -- --provider=vite` runs the demo.\n"
+            "No env var, no .env.local — the flag is the only selector, validated by resolveProviderFlag before any build or dev server.",
             ha="left", va="top", fontsize=8.4, color=MUTED)
 
     # Legend.
