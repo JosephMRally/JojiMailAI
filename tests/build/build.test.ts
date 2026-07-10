@@ -1,15 +1,15 @@
 /**
  * Build script stories (user-stories/typescript_email_ui.md):
- * - story (engineer): the build script spawns `tsc -b`, then `vite build` with
- *   VITE_MAIL_PROVIDER set to the chosen id, and finally writes
- *   `VITE_MAIL_PROVIDER=<id>` to .env.local so the next `npm run dev` uses it;
+ * - story (engineer): the build script spawns `tsc -b`, then
+ *   `vite build --mode <id>` so Vite's MODE carries the chosen provider — no
+ *   env var, and nothing written to .env.local;
  * - story (engineer): a missing or unknown --provider throws before any
  *   compilation starts — the exception paths are tested without running a
  *   real build.
  *
  * The orchestration lives in scripts/runBuild.mjs as runBuild(argv, io) with
- * injected effects (io.run/io.writeFile/io.log); scripts/build.mjs is the thin
- * entry that supplies the real spawnSync/writeFileSync.
+ * injected effects (io.run/io.log); scripts/build.mjs is the thin entry that
+ * supplies the real spawnSync.
  */
 import { describe, expect, it, vi } from 'vitest';
 import { runBuild } from '../../scripts/runBuild.mjs';
@@ -50,19 +50,19 @@ describe('story: a missing or unknown --provider throws before any compilation s
 
   it('an unknown provider throws, listing the known ids, before any step runs', () => {
     const { io, steps, writes } = fakeIo();
-    expect(() => runBuild(['--provider=aol'], io)).toThrow(/(?=.*aol)(?=.*gmail)(?=.*fake)/s);
+    expect(() => runBuild(['--provider=aol'], io)).toThrow(/(?=.*aol)(?=.*gmail)(?=.*vite)/s);
     expect(steps).toEqual([]);
     expect(writes).toEqual([]);
   });
 });
 
-describe('story: the build spawns tsc -b, then vite build with VITE_MAIL_PROVIDER set', () => {
-  it('runs the two steps in order with the chosen id in the vite step env', () => {
+describe('story: the build spawns tsc -b, then vite build --mode <id>', () => {
+  it('runs the two steps in order with the chosen id as the vite --mode', () => {
     const { io, steps } = fakeIo();
-    runBuild(['--provider=fake'], io);
+    runBuild(['--provider=vite'], io);
     expect(steps).toEqual([
       { command: 'npx', args: ['tsc', '-b'], extraEnv: {} },
-      { command: 'npx', args: ['vite', 'build'], extraEnv: { VITE_MAIL_PROVIDER: 'fake' } },
+      { command: 'npx', args: ['vite', 'build', '--mode', 'vite'], extraEnv: {} },
     ]);
   });
 
@@ -79,22 +79,16 @@ describe('story: the build spawns tsc -b, then vite build with VITE_MAIL_PROVIDE
   });
 });
 
-describe('story: the build finally writes VITE_MAIL_PROVIDER=<id> to .env.local', () => {
-  it('a successful build records the chosen provider for the next npm run dev', () => {
+describe('story: the build writes nothing beyond compiling — the flag is the only selector', () => {
+  it('a successful build produces no .env.local (or any other write)', () => {
     const { io, writes } = fakeIo();
-    expect(runBuild(['--provider=fake'], io)).toBe(0);
-    expect(writes).toEqual([{ path: '.env.local', content: 'VITE_MAIL_PROVIDER=fake\n' }]);
+    expect(runBuild(['--provider=vite'], io)).toBe(0);
+    expect(writes).toEqual([]);
   });
 
-  it('.env.local reflects whichever known provider was chosen', () => {
-    const { io, writes } = fakeIo();
-    runBuild(['--provider=gmail'], io);
-    expect(writes).toEqual([{ path: '.env.local', content: 'VITE_MAIL_PROVIDER=gmail\n' }]);
-  });
-
-  it('a failed vite step writes nothing — .env.local never lies about a build that did not ship', () => {
+  it('a failed vite step still writes nothing', () => {
     const { io, writes } = fakeIo([0, 1]);
-    expect(runBuild(['--provider=fake'], io)).toBe(1);
+    expect(runBuild(['--provider=vite'], io)).toBe(1);
     expect(writes).toEqual([]);
   });
 });

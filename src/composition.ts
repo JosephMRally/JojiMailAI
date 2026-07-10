@@ -23,11 +23,6 @@ export const GMAIL_ACCOUNT_ID = 'gmail';
 
 export type EnvLike = Record<string, string | undefined>;
 
-/** The provider id VITE_MAIL_PROVIDER selects; gmail when unset (dev mode). */
-export function selectedProviderId(env: EnvLike): string {
-  return (env.VITE_MAIL_PROVIDER ?? '').trim() || 'gmail';
-}
-
 export interface CompositionOptions {
   /** Vite env; injectable so composing is testable without ambient state. */
   env?: EnvLike;
@@ -44,8 +39,8 @@ export interface CompositionOptions {
   /** Bundled plug-ins to register into the host. */
   plugins?: MailPlugin[];
   /**
-   * Demo mailbox for the fake build (loaded by the app entry from
-   * public/fixtures/fake-provider.json). Omitted, the fake starts empty.
+   * Demo mailbox for the vite build (loaded by the app entry from
+   * public/fixtures/fake-provider.json). Omitted, the demo starts empty.
    */
   fakeFixtures?: FakeProviderFixtures;
 }
@@ -73,35 +68,29 @@ export function composeApp(options: CompositionOptions): AppServices {
 }
 
 /**
- * Build-time provider selection behind VITE_MAIL_PROVIDER (set by
- * `npm run build -- --provider=<id>` via scripts/build.mjs). The branch reads
- * `import.meta.env.VITE_MAIL_PROVIDER` DIRECTLY — the token Vite inlines to a
- * literal at build time — so the bundler folds the condition and tree-shakes
- * away every provider class except the selected one: `--provider=<id>` is 1:1
+ * Build-time provider selection behind Vite's MODE (set by
+ * `npm run build -- --provider=<id>` → `vite build --mode <id>` via
+ * scripts/build.mjs). The branch reads `import.meta.env.MODE` DIRECTLY — Vite
+ * inlines it to a literal at build time — so the bundler folds the condition
+ * and tree-shakes away the unselected provider class: `--provider=<id>` is 1:1
  * with the class that ships, and no demo/dead provider code rides along. (This
  * is why selection reads import.meta.env rather than the injected `env`: a
- * runtime value could not be folded. Tests drive it with vi.stubEnv.) New
- * platforms add one branch here and one id in scripts/providerFlag.mjs. Unset
- * (dev) defaults to gmail; an unknown value fails loudly at startup instead of
- * silently shipping the wrong provider.
+ * runtime value could not be folded. Tests drive it with vi.stubEnv('MODE').)
+ * `vite` selects the in-memory demo FakeProvider; every other mode (gmail, and
+ * dev/test/prod) selects GmailProvider. New platforms add one branch here and
+ * one id in scripts/providerFlag.mjs.
  */
 function registerSelectedProvider(
   registry: ProviderRegistry,
   env: EnvLike,
   options: CompositionOptions,
 ): void {
-  const selected = import.meta.env.VITE_MAIL_PROVIDER;
-  if (selected === 'fake') {
-    registry.register('fake', new FakeProvider(options.fakeFixtures));
-  } else if (selected === undefined || selected === '' || selected === 'gmail') {
+  if (import.meta.env.MODE === 'vite') {
+    registry.register('vite', new FakeProvider(options.fakeFixtures));
+  } else {
     registry.register(
       GMAIL_ACCOUNT_ID,
       new GmailProvider({ getAccessToken: options.gmailAuth ?? defaultGmailAuth(env) }),
-    );
-  } else {
-    throw new Error(
-      `Unknown VITE_MAIL_PROVIDER "${selected}". Known providers: gmail, fake. ` +
-        'Build with `npm run build -- --provider=<id>`.',
     );
   }
 }

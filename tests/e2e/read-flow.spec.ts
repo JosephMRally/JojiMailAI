@@ -1,6 +1,6 @@
 /**
  * End-to-end read flow (user-stories/typescript_email_ui.md): a real browser
- * over the fake build's seeded demo mailbox (public/fixtures/fake-provider.json)
+ * over the demo build's seeded mailbox (public/fixtures/fake-provider.json)
  * — demo tags in the sidebar, Refresh lists a tag's threads, opening a thread
  * shows its messages. No real account anywhere.
  */

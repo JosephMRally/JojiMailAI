@@ -8,7 +8,7 @@
 import { CapacitorSQLite, SQLiteConnection } from '@capacitor-community/sqlite';
 import { Capacitor } from '@capacitor/core';
 import { createRoot } from 'react-dom/client';
-import { composeApp, selectedProviderId, type EnvLike } from './composition';
+import { composeApp } from './composition';
 import type { FakeProviderFixtures } from './providers/FakeProvider';
 import { CapacitorDbHandle } from './store/CapacitorDbHandle';
 import { loadFakeFixtures } from './testing/FakeProviderFixtures';
@@ -18,11 +18,11 @@ const DB_NAME = 'jojimail';
 const FAKE_FIXTURES_PATH = '/fixtures/fake-provider.json';
 
 /**
- * The fake build's demo mailbox, editable as plain JSON in public/fixtures/.
+ * The vite build's demo mailbox, editable as plain JSON in public/fixtures/.
  * A missing or unreadable file degrades to an empty mailbox — never a crash.
  */
 async function loadDemoFixtures(): Promise<FakeProviderFixtures | undefined> {
-  if (selectedProviderId(import.meta.env as unknown as EnvLike) !== 'fake') return undefined;
+  if (import.meta.env.MODE !== 'vite') return undefined;
   try {
     return await loadFakeFixtures(FAKE_FIXTURES_PATH);
   } catch (error) {

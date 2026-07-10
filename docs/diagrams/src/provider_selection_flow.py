@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 """Generate docs/diagrams/provider_selection_flow.png — flow diagram for
 build-time provider selection (user-stories/typescript_email_ui.md): how
-`npm run build -- --provider=<id>` validates the flag, how Vite inlines
-VITE_MAIL_PROVIDER into a literal the bundler can fold, and how the composition
-root's constant branch tree-shakes every provider class except the selected one
-so `--provider=<id>` is 1:1 with the single class that ships.
+`npm run build -- --provider=<id>` validates the flag and compiles with
+`vite build --mode <id>`, how Vite inlines import.meta.env.MODE into a literal
+the bundler can fold, and how the composition root's constant branch tree-shakes
+every provider class except the selected one so `--provider=<id>` is 1:1 with
+the single class that ships.
 
 Reproducible: .venv/bin/python docs/diagrams/src/provider_selection_flow.py
 """
@@ -62,14 +63,14 @@ def main() -> None:
     cx = 5.0
     process(ax, cx, 16.0, "npm run build -- --provider=<id>", h=1.0, fill=TERMINAL)
     process(ax, cx, 14.4, "scripts/providerFlag.mjs\nresolveProviderFlag(argv)", h=1.1)
-    decision(ax, cx, 12.5, "known id?\n(gmail | fake)")
+    decision(ax, cx, 12.5, "known id?\n(gmail | vite)")
     process(ax, 11.5, 12.5, "throw before any\ncompilation — names the\nflag, lists the known ids",
             w=4.6, h=1.5, fill=TERMINAL)
-    process(ax, cx, 10.55, "runBuild → tsc -b, then vite build\n(env VITE_MAIL_PROVIDER=<id> wins over .env.local;\n.env.local rewritten so the next npm run dev matches)",
+    process(ax, cx, 10.55, "runBuild → tsc -b, then\nvite build --mode <id>\n(Vite's MODE carries the choice; no env var, no .env.local)",
             w=6.8, h=1.5)
-    process(ax, cx, 8.7, "Vite replaces import.meta.env.VITE_MAIL_PROVIDER\nwith the literal \"<id>\" at build time",
+    process(ax, cx, 8.7, "Vite replaces import.meta.env.MODE\nwith the literal \"<id>\" at build time",
             w=6.8, h=1.1)
-    decision(ax, cx, 6.8, "composition root branch\nselected === 'fake' ?", w=5.0, h=1.6)
+    decision(ax, cx, 6.8, "composition root branch\nMODE === 'vite' ?", w=5.0, h=1.6)
 
     fake_x, gmail_x = 2.7, 8.0
     process(ax, fake_x, 4.7, "register FakeProvider;\nGmailProvider branch is dead →\ntree-shaken from the bundle",
@@ -92,8 +93,8 @@ def main() -> None:
     edge(ax, gmail_x, 3.95, 6.0, 3.1)
 
     ax.text(0.3, 1.35,
-            "Dev (npm run dev) runs the same branch from .env.local — no folding, but still exactly one provider is registered;\n"
-            "an unknown value here throws at startup. A build never reaches that throw: resolveProviderFlag already rejected the flag.",
+            "Dev: `npm run dev` runs mode 'development' → the else branch (gmail); `vite --mode vite` runs the demo.\n"
+            "No env var, no .env.local — the flag is the only selector, validated by resolveProviderFlag before any build.",
             ha="left", va="top", fontsize=8.4, color=MUTED)
 
     # Legend.

@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 """Generate docs/diagrams/provider_selection_sequence.png — sequence diagram for
 build-time provider selection (user-stories/typescript_email_ui.md): the build
-validates --provider, Vite inlines VITE_MAIL_PROVIDER into a literal, the
-composition root's constant branch folds so the unselected provider class is
-tree-shaken out, and exactly one provider is registered — 1:1 with --provider.
+validates --provider and compiles with `vite build --mode <id>`, Vite inlines
+import.meta.env.MODE into a literal, the composition root's constant branch folds
+so the unselected provider class is tree-shaken out, and exactly one provider is
+registered — 1:1 with --provider.
 
 Reproducible: .venv/bin/python docs/diagrams/src/provider_selection_sequence.py
 """
@@ -26,12 +27,12 @@ RETURN = "#64748b"     # dashed return arrows
 ACTORS = [
     ("npm run build", "(-- --provider=<id>)", BOX_FILL),
     ("runBuild.mjs", "(providerFlag →\ntsc -b → vite build)", BOX_FILL),
-    ("Vite build", "(inlines env,\ntree-shakes dead code)", BOX_FILL),
+    ("Vite build", "(inlines MODE,\ntree-shakes dead code)", BOX_FILL),
     ("Composition root", "(src/composition.ts —\nthe selection branch)", SUBJECT_FILL),
     ("ProviderRegistry", "(one provider\nregistered)", BOX_FILL),
 ]
 X = [1.5, 4.3, 7.1, 9.9, 12.7]
-TOP, BOTTOM = 19.7, 5.0
+TOP, BOTTOM = 19.7, 8.0
 
 
 def box(ax, x, y, w, h, fill, edge=LINE):
@@ -68,14 +69,14 @@ def phase(ax, y_top, y_bot, title):
 
 
 def main() -> None:
-    fig, ax = plt.subplots(figsize=(14.2, 10.8))
+    fig, ax = plt.subplots(figsize=(14.2, 8.4))
     ax.set_xlim(0, 14.2)
-    ax.set_ylim(2.6, 21.7)
+    ax.set_ylim(6.9, 21.7)
     ax.axis("off")
 
     ax.text(0.25, 21.4, "Provider selection — sequence: validate --provider, fold the constant, register one class",
             fontsize=13, color=INK, fontweight="bold", ha="left", va="top")
-    ax.text(0.25, 20.85, "user-stories/typescript_email_ui.md · VITE_MAIL_PROVIDER inlined at build time · --provider=<id> is 1:1 with the bundled provider class",
+    ax.text(0.25, 20.85, "user-stories/typescript_email_ui.md · import.meta.env.MODE inlined at build time · --provider=<id> is 1:1 with the bundled provider class",
             fontsize=8.8, color=MUTED, ha="left", va="top")
 
     for (name, sub, fill), x in zip(ACTORS, X):
@@ -92,25 +93,21 @@ def main() -> None:
     phase(ax, 18.2, 15.5, "build — validate the flag, then compile with the chosen id")
     arrow(ax, 17.3, build, run, "runBuild(['--provider=<id>'])")
     self_call(ax, 16.75, run, "resolveProviderFlag — missing/unknown throws before any compile")
-    arrow(ax, 15.85, run, vite, "vite build (env VITE_MAIL_PROVIDER=<id> wins over .env.local)")
+    arrow(ax, 15.85, run, vite, "vite build --mode <id> (Vite's MODE carries the choice)")
 
     # Phase 2: fold the constant, register one class.
     phase(ax, 15.0, 8.5, "bundle — fold the inlined constant, register exactly one class")
-    self_call(ax, 14.1, vite, "inline import.meta.env.VITE_MAIL_PROVIDER → \"<id>\" (a literal)")
+    self_call(ax, 14.1, vite, "inline import.meta.env.MODE → \"<id>\" (a literal)")
     arrow(ax, 13.15, vite, root, "compile src/composition.ts with the literal in place")
-    self_call(ax, 12.6, root, "branch folds: fake / gmail / unset — else throws")
+    self_call(ax, 12.6, root, "branch folds: MODE 'vite' → FakeProvider, else GmailProvider")
     self_call(ax, 11.5, root, "dead branch → its provider class tree-shaken out")
     arrow(ax, 10.55, root, reg, "register('<id>', new <Selected>Provider(...)) — the only registration")
     arrow(ax, 9.85, reg, root, "registry holds exactly one provider", dashed=True)
     arrow(ax, 9.05, vite, run, "bundle emitted: one provider class, 1:1 with --provider", dashed=True)
 
-    # Phase 3: persist the choice for dev.
-    phase(ax, 7.8, 5.5, "after a green build")
-    self_call(ax, 6.9, run, "write .env.local = VITE_MAIL_PROVIDER=<id> for the next npm run dev")
-
-    ax.text(0.45, 4.7,
-            "npm run dev re-runs the same branch from .env.local — no folding (both classes sit in the dev module graph), but still exactly one\n"
-            "provider is registered; an unknown value throws at startup. A build never emits such a bundle: resolveProviderFlag already rejected it.",
+    ax.text(0.45, 7.5,
+            "No .env.local and no env var — the flag is the only selector. `npm run dev` runs mode 'development' → the else branch\n"
+            "(gmail); `vite --mode vite` runs the demo. In vitest both classes are present and tests pick the branch with vi.stubEnv('MODE').",
             ha="left", va="top", fontsize=8.4, color=MUTED)
 
     out = Path(__file__).resolve().parent.parent / "provider_selection_sequence.png"

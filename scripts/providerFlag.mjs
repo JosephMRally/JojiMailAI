@@ -7,8 +7,10 @@
  */
 
 /** Provider ids the app can be built for; new platforms add one entry here
- * and one selection branch in the composition root (src/composition.ts). */
-export const KNOWN_PROVIDERS = ['gmail', 'fake'];
+ * and one selection branch in the composition root (src/composition.ts).
+ * `vite` is the in-memory demo provider — `--provider=vite` builds with
+ * `vite build --mode vite`, and the composition root registers FakeProvider. */
+export const KNOWN_PROVIDERS = ['gmail', 'vite'];
 
 const USAGE = 'Usage: npm run build -- --provider=<id>';
 

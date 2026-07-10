@@ -1,19 +1,19 @@
 /**
- * Test for npm run build -- --provider=fake && npm run dev workflow.
- * Verifies that the build creates a working app with fake test emails visible.
+ * Test for the npm run build -- --provider=vite && vite --mode vite workflow.
+ * Verifies that the build creates a working app with the demo emails visible.
  */
 import { expect, test } from '@playwright/test';
 
-test('npm run build --provider=fake && npm run dev shows fake test emails', async ({ page }) => {
+test('npm run build --provider=vite && vite --mode vite shows demo emails', async ({ page }) => {
   // Navigate to the app
   await page.goto('/');
 
-  // Verify the sidebar loads with demo tags from the fake provider
+  // Verify the sidebar loads with demo tags from the demo provider
   const tags = page.getByRole('navigation', { name: 'Tags' });
   await expect(tags.getByRole('button', { name: 'Inbox' })).toBeVisible();
   await expect(tags.getByRole('button', { name: 'Starred' })).toBeVisible();
 
-  // Select Inbox and refresh to load threads from the fake provider
+  // Select Inbox and refresh to load threads from the demo provider
   await tags.getByRole('button', { name: 'Inbox' }).click();
   await page.getByRole('button', { name: 'Refresh' }).click();
 

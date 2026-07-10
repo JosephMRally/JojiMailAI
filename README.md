@@ -125,14 +125,12 @@ starts.
 
 To add a new provider: implement the `MailProvider` interface (see
 `user-stories/providers/typescript_mail_provider.md`), add its id to
-`KNOWN_PROVIDERS` in `scripts/providerFlag.mjs`, and register it in the
-composition root's provider map (`src/composition.ts`). The UI changes not at all.
+`KNOWN_PROVIDERS` in `scripts/providerFlag.mjs`, and add one selection branch in
+the composition root (`src/composition.ts`). The UI changes not at all.
 
-**Dev server workflow**: The build script records your provider choice to `.env.local`,
-so `npm run dev` uses it automatically — no need to set environment variables each time.
-If the dev server is already running when you build, restart it with Ctrl+C then `npm run dev`
-to pick up the new `.env.local`. Alternatively, set `VITE_MAIL_PROVIDER=fake npm run dev` to
-override without rebuilding.
+**Dev server workflow**: the provider is chosen per command via Vite's mode — no
+env var and no `.env.local`. `npm run dev` runs the default (Gmail); to run the
+in-memory demo mailbox, use `npm run dev -- --mode vite` (equivalently `vite --mode vite`).
 
 ### Build the native shells (first time only)
 
@@ -194,13 +192,13 @@ an hour; refresh and restart when calls start failing with AUTH_REQUIRED.
 ## Running tests
 
 ```
-npx playwright test                            # end-to-end: real browser over the seeded fake build
+npx playwright test                            # end-to-end: real browser over the seeded demo build
 npx vitest run                                 # unit: all TypeScript layers (providers, store, plugins, UI)
 .venv/bin/python -m pytest bridge/tests/ -q   # deprecated bridge (kept for reference)
 ```
 
 Unit tests are fully mocked — nothing touches a real account, an OAuth flow, or the
-network. The end-to-end suite starts its own dev server with `VITE_MAIL_PROVIDER=fake`
+network. The end-to-end suite starts its own dev server with `vite --mode vite`
 and drives the demo mailbox in a real (headless) browser — still no real account.
 One-time setup for it: `npx playwright install chromium`.
 

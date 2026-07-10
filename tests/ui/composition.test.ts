@@ -46,12 +46,11 @@ function memoryStorage(): { getItem(key: string): string | null; setItem(key: st
   };
 }
 
-// Provider selection now branches on import.meta.env.VITE_MAIL_PROVIDER directly
-// (so a build folds the branch and ships one provider class), not on the injected
-// `env` option — which still feeds AI config. Tests set it with vi.stubEnv;
-// default every test to gmail and let selection tests override.
+// Provider selection now branches on import.meta.env.MODE directly (so a build
+// folds the branch and ships one provider class). Tests set it with vi.stubEnv;
+// default every test to a non-vite mode (gmail) and let selection tests override.
 beforeEach(() => {
-  vi.stubEnv('VITE_MAIL_PROVIDER', 'gmail');
+  vi.stubEnv('MODE', 'gmail');
 });
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -117,25 +116,25 @@ describe('story: one composition-root module wires every concrete backend', () =
   });
 });
 
-describe('story: the composition root selects one provider from import.meta.env.VITE_MAIL_PROVIDER', () => {
-  it('VITE_MAIL_PROVIDER=gmail registers the GmailProvider under the gmail account id', () => {
-    vi.stubEnv('VITE_MAIL_PROVIDER', 'gmail');
+describe('story: the composition root selects one provider from import.meta.env.MODE', () => {
+  it('a non-vite MODE (gmail) registers the GmailProvider under the gmail account id', () => {
+    vi.stubEnv('MODE', 'gmail');
     const { handle } = recordingDbHandle();
     const services = composeApp({ env: {}, dbHandle: handle, settingsStorage: memoryStorage() });
     expect(services.registry.listAccounts()).toEqual([GMAIL_ACCOUNT_ID]);
     expect(services.registry.resolve(GMAIL_ACCOUNT_ID)).toBeInstanceOf(GmailProvider);
   });
 
-  it('VITE_MAIL_PROVIDER=fake registers the FakeProvider under the fake account id', () => {
-    vi.stubEnv('VITE_MAIL_PROVIDER', 'fake');
+  it("MODE 'vite' registers the FakeProvider under the vite account id", () => {
+    vi.stubEnv('MODE', 'vite');
     const { handle } = recordingDbHandle();
     const services = composeApp({ env: {}, dbHandle: handle, settingsStorage: memoryStorage() });
-    expect(services.registry.listAccounts()).toEqual(['fake']);
-    expect(services.registry.resolve('fake')).toBeInstanceOf(FakeProvider);
+    expect(services.registry.listAccounts()).toEqual(['vite']);
+    expect(services.registry.resolve('vite')).toBeInstanceOf(FakeProvider);
   });
 
-  it('VITE_MAIL_PROVIDER=fake seeds the FakeProvider from the fakeFixtures option', async () => {
-    vi.stubEnv('VITE_MAIL_PROVIDER', 'fake');
+  it("MODE 'vite' seeds the FakeProvider from the fakeFixtures option", async () => {
+    vi.stubEnv('MODE', 'vite');
     const { handle } = recordingDbHandle();
     const services = composeApp({
       env: {},
@@ -143,22 +142,16 @@ describe('story: the composition root selects one provider from import.meta.env.
       settingsStorage: memoryStorage(),
       fakeFixtures: { tags: [{ tagId: 'demo-inbox', name: 'Inbox' }], messages: [] },
     });
-    const tags = await services.registry.resolve('fake').listTags();
+    const tags = await services.registry.resolve('vite').listTags();
     expect(tags.map((t) => t.tagId)).toEqual(['demo-inbox']);
   });
 
-  it('an unset VITE_MAIL_PROVIDER defaults to gmail (dev mode)', () => {
-    vi.stubEnv('VITE_MAIL_PROVIDER', undefined);
-    const { handle } = recordingDbHandle();
-    const services = composeApp({ env: {}, dbHandle: handle, settingsStorage: memoryStorage() });
-    expect(services.registry.resolve(GMAIL_ACCOUNT_ID)).toBeInstanceOf(GmailProvider);
-  });
-
-  it('an unknown VITE_MAIL_PROVIDER throws at startup, listing the known ids', () => {
-    vi.stubEnv('VITE_MAIL_PROVIDER', 'aol');
-    const { handle } = recordingDbHandle();
-    expect(() =>
-      composeApp({ env: {}, dbHandle: handle, settingsStorage: memoryStorage() }),
-    ).toThrow(/(?=.*aol)(?=.*gmail)(?=.*fake)/s);
+  it('any mode other than vite (dev/test/prod) selects gmail', () => {
+    for (const mode of ['development', 'production', 'test']) {
+      vi.stubEnv('MODE', mode);
+      const { handle } = recordingDbHandle();
+      const services = composeApp({ env: {}, dbHandle: handle, settingsStorage: memoryStorage() });
+      expect(services.registry.resolve(GMAIL_ACCOUNT_ID)).toBeInstanceOf(GmailProvider);
+    }
   });
 });

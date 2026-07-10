@@ -8,8 +8,8 @@
  * emitted JS for the OTHER provider's unique marker, which must be absent.
  *
  * Slower than the io-mocked scripts/runBuild tests in build.test.ts (it shells
- * out to Vite), hence its own file. VITE_MAIL_PROVIDER is passed in the child's
- * process env, which Vite prefers over .env.local.
+ * out to Vite), hence its own file. The provider is passed as Vite's --mode,
+ * exactly as `npm run build -- --provider=<id>` does.
  */
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
@@ -31,9 +31,8 @@ const tempDirs: string[] = [];
 function buildBundleJs(provider: string): string {
   const outDir = mkdtempSync(join(tmpdir(), `joji-bundle-${provider}-`));
   tempDirs.push(outDir);
-  execFileSync('npx', ['vite', 'build', '--outDir', outDir, '--emptyOutDir'], {
+  execFileSync('npx', ['vite', 'build', '--mode', provider, '--outDir', outDir, '--emptyOutDir'], {
     cwd: projectRoot,
-    env: { ...process.env, VITE_MAIL_PROVIDER: provider },
     stdio: 'pipe',
   });
   const assets = join(outDir, 'assets');
@@ -59,9 +58,9 @@ describe('story: --provider=<id> ships exactly one provider class', () => {
   );
 
   it(
-    'a fake build contains FakeProvider and excludes GmailProvider',
+    'a vite build contains FakeProvider and excludes GmailProvider',
     () => {
-      const js = buildBundleJs('fake');
+      const js = buildBundleJs('vite');
       expect(js).toContain(FAKE_MARKER);
       expect(js).not.toContain(GMAIL_MARKER);
     },
