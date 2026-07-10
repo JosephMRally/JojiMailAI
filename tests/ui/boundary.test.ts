@@ -1,13 +1,12 @@
 /**
  * Boundary tests (user-stories/typescript_email_ui.md):
  * - story (engineer): every UI file imports mail types only from
- *   src/providers/, AI only from MailIntelligence.ts, storage only from
- *   MailStore.ts, plug-ins only from MailPlugin.ts/PluginHost.ts — never a
- *   concrete class — enforced by a test;
+ *   src/providers/, storage only from MailStore.ts, plug-ins only from
+ *   MailPlugin.ts/PluginHost.ts — never a concrete class — enforced by a test;
  * - story (engineer): src/composition.ts (+ src/main.tsx) is the only place
- *   allowed to import concrete provider/intelligence/store/plug-in classes;
- * - story (engineer): UI tests run against the four in-memory fakes with
- *   fake example.com fixture addresses only.
+ *   allowed to import concrete provider/store/plug-in classes;
+ * - story (engineer): UI tests run against the in-memory fakes with fake
+ *   example.com fixture addresses only.
  */
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_MESSAGES, TAGS } from './fixtures';
@@ -36,7 +35,6 @@ const IMPORT_SPECIFIER_RE = /(?:from|import)\s*\(?\s*['"]([^'"]+)['"]/g;
 /** The only modules of each layer the UI may import (interfaces + registry/host). */
 const ALLOWED_BY_LAYER: Array<[string, Set<string>]> = [
   ['providers/', new Set(['MailProvider', 'model', 'ProviderRegistry'])],
-  ['intelligence/', new Set(['MailIntelligence'])],
   ['store/', new Set(['MailStore'])],
   // The spec allows plug-in imports only from MailPlugin.ts/PluginHost.ts;
   // PluginSettings.ts exports concrete classes and stays composition-only.
@@ -45,10 +43,10 @@ const ALLOWED_BY_LAYER: Array<[string, Set<string>]> = [
 
 /** Modules that are concrete implementations; only the composition root may name them. */
 const CONCRETE_MODULE_RE =
-  /providers\/gmail|FakeProvider|LocalIntelligence|FakeIntelligence|SqliteMailStore|FakeMailStore|CapacitorDbHandle|DbHandle|FakePlugin|PluginSettings(?:\.tsx?)?$/;
+  /providers\/gmail|FakeProvider|SqliteMailStore|FakeMailStore|CapacitorDbHandle|DbHandle|FakePlugin|PluginSettings(?:\.tsx?)?$/;
 
-/** The composition-root modules; UI files must receive their products as props. */
-const COMPOSITION_MODULE_RE = /(?:^|\/)(?:composition|config)(?:\.tsx?)?$/;
+/** The composition-root module; UI files must receive their products as props. */
+const COMPOSITION_MODULE_RE = /(?:^|\/)composition(?:\.tsx?)?$/;
 
 function importSpecifiers(source: string): string[] {
   return [...source.matchAll(IMPORT_SPECIFIER_RE)].map((match) => match[1]);
@@ -59,7 +57,7 @@ describe('story: all four proxy boundaries hold in every UI file', () => {
     expect(Object.keys(uiSources)).toContain('/src/ui/App.tsx');
   });
 
-  it('no file under src/ui/ imports a concrete provider, intelligence, store, or plug-in module', () => {
+  it('no file under src/ui/ imports a concrete provider, store, or plug-in module', () => {
     const offenders: string[] = [];
     for (const [file, source] of Object.entries(uiSources)) {
       for (const specifier of importSpecifiers(source)) {
@@ -76,10 +74,10 @@ describe('story: all four proxy boundaries hold in every UI file', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('no file under src/ui/ imports the composition root or the config module', () => {
+  it('no file under src/ui/ imports the composition root', () => {
     // Importing src/composition.ts (which constructs every concrete backend)
-    // or src/config.ts would bypass the layer scan above; UI files receive
-    // everything through props instead.
+    // would bypass the layer scan above; UI files receive everything through
+    // props instead.
     const offenders: string[] = [];
     for (const [file, source] of Object.entries(uiSources)) {
       for (const specifier of importSpecifiers(source)) {
@@ -93,7 +91,6 @@ describe('story: all four proxy boundaries hold in every UI file', () => {
 
   it('the layer and composition checks flag known-bad specifiers (self-test)', () => {
     expect(COMPOSITION_MODULE_RE.test('../composition')).toBe(true);
-    expect(COMPOSITION_MODULE_RE.test('../config')).toBe(true);
     expect(COMPOSITION_MODULE_RE.test('./format')).toBe(false);
     expect(CONCRETE_MODULE_RE.test('../plugins/PluginSettings')).toBe(true);
     expect(CONCRETE_MODULE_RE.test('../providers/gmail')).toBe(true);
@@ -107,7 +104,7 @@ describe('story: the composition root is the only module importing concrete clas
     expect(Object.keys(rootSources)).toContain('/src/main.tsx');
   });
 
-  it('concrete provider/intelligence/store/plug-in imports appear only in composition.ts and main.tsx', () => {
+  it('concrete provider/store/plug-in imports appear only in composition.ts and main.tsx', () => {
     const allowedFiles = new Set(['/src/composition.ts', '/src/main.tsx']);
     const offenders: string[] = [];
     for (const [file, source] of Object.entries({ ...uiSources, ...rootSources })) {
@@ -124,7 +121,6 @@ describe('story: the composition root is the only module importing concrete clas
   it('the composition root actually wires the concrete backends and main.tsx consumes it', () => {
     const composition = rootSources['/src/composition.ts'] ?? '';
     expect(composition).toMatch(/providers\/gmail\/GmailProvider/);
-    expect(composition).toMatch(/intelligence\/LocalIntelligence/);
     expect(composition).toMatch(/store\/SqliteMailStore/);
     expect(composition).toMatch(/plugins\/PluginHost/);
     const main = rootSources['/src/main.tsx'] ?? '';
@@ -134,14 +130,13 @@ describe('story: the composition root is the only module importing concrete clas
 });
 
 describe('story: UI tests run only against the in-memory fakes with fake addresses', () => {
-  it('the shared harness constructs FakeProvider, FakeIntelligence, and FakeMailStore — never a concrete backend', () => {
+  it('the shared harness constructs FakeProvider and FakeMailStore — never a concrete backend', () => {
     const source = harnessSources['/tests/ui/harness.tsx'];
     expect(source).toBeDefined();
     expect(source).toMatch(/FakeProvider/);
-    expect(source).toMatch(/FakeIntelligence/);
     expect(source).toMatch(/FakeMailStore/);
     expect(source).toMatch(/PluginHost/);
-    expect(source).not.toMatch(/GmailProvider|LocalIntelligence|SqliteMailStore|CapacitorDbHandle/);
+    expect(source).not.toMatch(/GmailProvider|SqliteMailStore|CapacitorDbHandle/);
   });
 
   it('every fixture address is an example.com address', () => {

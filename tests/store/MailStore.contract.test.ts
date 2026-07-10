@@ -2,10 +2,10 @@
  * MailStore contract tests (user-stories/typescript_mail_store.md), run
  * against BOTH implementations — FakeMailStore in memory and SqliteMailStore
  * over an injected in-memory sql.js handle — so storage backends swap the
- * way mail platforms and AI backends do. Covers: the seven-method surface,
- * idempotent upserts, offline reading, exact Bloom-prescreened search with
- * all-terms semantics, stop-word handling with the too-generic signal,
- * Bloom recompute on content change, and per-account clear.
+ * way mail platforms do. Covers: the seven-method surface, idempotent
+ * upserts, offline reading, exact text search with all-terms semantics,
+ * stop-word handling with the too-generic signal, search reflecting content
+ * changes, and per-account clear.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Message } from '../../src/providers/model';
@@ -129,7 +129,7 @@ describe.each(implementations)('MailStore contract — %s', (_name, makeStore) =
       const stored = await store.getMessage('m-empty');
       expect(stored?.bodyPlain).toBe('');
       expect(stored?.bodyHtml).toBeUndefined();
-      // The Bloom filter built over subject + empty body still indexes the subject.
+      // Search over a subject with an empty body still matches the subject.
       const result = await store.searchText(ACCOUNT_A, 'calendar reminder');
       expect(result.tooGeneric).toBe(false);
       expect(result.messages.map((m) => m.messageId)).toEqual(['m-empty']);
@@ -191,7 +191,7 @@ describe.each(implementations)('MailStore contract — %s', (_name, makeStore) =
     });
   });
 
-  describe('story: searchText tokenizes terms, prescreens with Bloom filters (ALL terms), then verifies against stored text', () => {
+  describe('story: searchText tokenizes terms and returns exact matches requiring ALL terms in a message', () => {
     it('finds every message containing a term, newest-first', async () => {
       const result = await store.searchText(ACCOUNT_A, 'quarterly');
       expect(ids(result.messages)).toEqual(['m2', 'm1']);
@@ -226,7 +226,7 @@ describe.each(implementations)('MailStore contract — %s', (_name, makeStore) =
     });
   });
 
-  describe('story: stop words and sub-2-character tokens are dropped before the Bloom check; all-stop queries fail fast', () => {
+  describe('story: stop words and sub-2-character tokens are dropped before matching; all-stop queries fail fast', () => {
     it('stop words in the query do not change the result', async () => {
       const bare = await store.searchText(ACCOUNT_A, 'quarterly');
       const wrapped = await store.searchText(ACCOUNT_A, 'the quarterly of it');
@@ -241,7 +241,7 @@ describe.each(implementations)('MailStore contract — %s', (_name, makeStore) =
     });
   });
 
-  describe('story: the Bloom filter is recomputed whenever an upsert changes subject or body_plain', () => {
+  describe('story: search reflects updated subject or body_plain after a re-upsert', () => {
     it('search reflects the new text and forgets the old after a content update', async () => {
       const m4 = makeAccountAFixtures().messages.find((m) => m.messageId === 'm4')!;
       expect(ids((await store.searchText(ACCOUNT_A, 'ramen')).messages)).toEqual(['m4']);
@@ -260,7 +260,7 @@ describe.each(implementations)('MailStore contract — %s', (_name, makeStore) =
       const updated: Message = { ...m5, subject: 'Build is failing again' };
       await store.upsertMessages(ACCOUNT_A, [updated]);
 
-      // A filter recomputed only on body_plain changes would miss 'failing'.
+      // A search that ignored subject changes would miss 'failing'.
       expect(ids((await store.searchText(ACCOUNT_A, 'failing')).messages)).toEqual(['m5']);
       expect(ids((await store.searchText(ACCOUNT_A, 'passing')).messages)).toEqual([]);
     });

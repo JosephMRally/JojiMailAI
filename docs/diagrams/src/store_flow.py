@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 """Generate docs/diagrams/store_flow.png — flow diagram for MailStore
 searchText (user-stories/typescript_mail_store.md): shared tokenization,
-the too-generic fast path, Bloom prescreening (ALL terms), and verification
-against stored text so results equal a full scan.
+the too-generic fast path, and per-message verification against the stored
+subject + body_plain so results equal a full scan (exact — never a missed
+or phantom match): the query is matched directly against each message's
+stored text.
 
 Reproducible: .venv/bin/python docs/diagrams/src/store_flow.py
 """
@@ -53,48 +55,45 @@ def main() -> None:
     ax.set_ylim(0, 17.4)
     ax.axis("off")
 
-    ax.text(0.3, 17.1, "MailStore.searchText — flow: tokenize → Bloom prescreen → verify",
+    ax.text(0.3, 17.1, "MailStore.searchText — flow: tokenize → scan stored messages → verify",
             fontsize=13, color=INK, fontweight="bold", ha="left", va="top")
-    ax.text(0.3, 16.55, "user-stories/typescript_mail_store.md · identical to a full scan, never a missed or phantom result",
+    ax.text(0.3, 16.55, "user-stories/typescript_mail_store.md · exact: identical to a full scan of stored text, never a missed or phantom result",
             fontsize=9, color=MUTED, ha="left", va="top")
 
     cx = 5.0
     process(ax, cx, 15.6, "searchText(accountId, terms)", fill=TERMINAL)
-    process(ax, cx, 14.1, "tokenize(terms) — shared tokenize.ts:\nlowercase · split non-alphanumeric runs\ndrop <2-char tokens and ~175 stop words", h=1.5)
-    decision(ax, cx, 12.1, "any tokens\nleft?")
-    process(ax, 11.6, 12.1, "return { messages: [],\ntooGeneric: true }", w=4.2, h=1.2, fill=TERMINAL)
-    process(ax, cx, 10.3, "load account messages,\nnewest-first (date DESC)", h=1.1)
-    decision(ax, cx, 8.3, "next\nmessage?")
-    decision(ax, cx, 5.9, "Bloom contains\nALL terms?\n(k=4 bit tests)")
-    decision(ax, cx, 3.4, "every term in\ntokens(subject +\nbody_plain)?")
-    process(ax, cx, 1.2, "append to results", w=3.4, h=0.9)
-    process(ax, 11.6, 8.3, "return { messages:\nverified matches newest-first,\ntooGeneric: false }", w=4.4, h=1.5, fill=TERMINAL)
+    process(ax, cx, 13.95, "tokenize(terms) — shared tokenize.ts:\nlowercase · split on non-alphanumeric runs\ndrop <2-char tokens & ~175 stop words · dedupe", h=1.5)
+    decision(ax, cx, 11.7, "query tokens empty?\n(all stop words /\ntoo short)")
+    process(ax, 11.6, 11.7, "return { messages: [],\ntooGeneric: true }", w=4.2, h=1.2, fill=TERMINAL)
+    process(ax, cx, 9.7, "load the account's messages,\nnewest-first (date DESC)", h=1.1)
+    decision(ax, cx, 7.7, "next\nmessage?")
+    decision(ax, cx, 4.9, "messageTokens(subject,\nbody_plain) contains\nALL query tokens?", w=4.8, h=1.9)
+    process(ax, cx, 2.4, "collect message\ninto matches", w=3.8, h=0.9)
+    process(ax, 11.6, 7.7, "return { messages: verified\nmatches (newest-first),\ntooGeneric: false } — exact", w=4.6, h=1.6, fill=TERMINAL)
 
-    edge(ax, cx, 15.1, cx, 14.85)
-    edge(ax, cx, 13.35, cx, 12.85)
-    edge(ax, 7.25, 12.1, 9.45, 12.1)
-    ax.text(7.35, 12.28, "no — too generic,\nfail fast", ha="left", va="bottom",
+    edge(ax, cx, 15.1, cx, 14.7)
+    edge(ax, cx, 13.2, cx, 12.45)
+    edge(ax, 7.25, 11.7, 9.45, 11.7)
+    ax.text(7.35, 11.9, "yes — too generic,\nfail fast", ha="left", va="bottom",
             fontsize=8.6, color=INK, fontweight="bold")
-    edge(ax, cx, 11.35, cx, 10.85, label="yes")
-    edge(ax, cx, 9.75, cx, 9.05)
-    edge(ax, 7.25, 8.3, 9.35, 8.3)
-    ax.text(7.45, 8.46, "exhausted", ha="left", va="bottom",
+    edge(ax, cx, 10.95, cx, 10.25, label="no")
+    edge(ax, cx, 9.15, cx, 8.45)
+    edge(ax, 7.25, 7.7, 9.25, 7.7)
+    ax.text(7.4, 7.88, "exhausted", ha="left", va="bottom",
             fontsize=8.6, color=INK, fontweight="bold")
-    edge(ax, cx, 7.55, cx, 6.65, label="yes")
-    edge(ax, cx, 5.15, cx, 4.15, label="yes — candidate")
-    edge(ax, cx, 2.65, cx, 1.65, label="yes — verified")
+    edge(ax, cx, 6.95, cx, 5.85, label="yes")
+    edge(ax, cx, 3.95, cx, 2.85, label="yes — collect")
 
-    # Loop-backs: definitely-absent skip and discarded false positive.
-    ax.plot([2.8, 1.6, 1.6], [5.9, 5.9, 8.3], color=MUTED, linewidth=1.2, zorder=0)
-    edge(ax, 1.6, 8.3, 2.8, 8.3)
-    ax.text(0.85, 5.62, "no — definitely absent, skip\n(never false-negative)",
+    # Loop-backs: a non-matching message is skipped, a collected one continues;
+    # both return to the "next message?" iterator (the for-each over the account).
+    ax.plot([2.6, 1.5, 1.5], [4.9, 4.9, 7.7], color=MUTED, linewidth=1.2, zorder=0)
+    edge(ax, 1.5, 7.7, 2.8, 7.7)
+    ax.text(0.7, 4.62, "no — not all tokens,\nskip this message",
             ha="left", va="top", fontsize=8.4, color=INK, fontweight="bold")
-    ax.plot([2.8, 0.7, 0.7], [3.4, 3.4, 8.3], color=MUTED, linewidth=1.2, zorder=0)
-    edge(ax, 0.7, 8.3, 2.8, 8.3)
-    ax.text(0.95, 3.12, "no — Bloom false positive,\ndiscard on verification",
-            ha="left", va="top", fontsize=8.4, color=INK, fontweight="bold")
-    ax.plot([6.7, 8.6, 8.6, 6.2], [1.2, 1.2, 8.0, 8.0], color=MUTED, linewidth=1.2, zorder=0)
-    edge(ax, 8.6, 8.0, 6.9, 8.15)
+    ax.plot([6.9, 8.7, 8.7, 6.4], [2.4, 2.4, 7.4, 7.4], color=MUTED, linewidth=1.2, zorder=0)
+    edge(ax, 8.7, 7.4, 6.55, 7.5)
+    ax.text(8.85, 4.9, "continue the scan", ha="left", va="center",
+            fontsize=8.4, color=INK, fontweight="bold", rotation=90)
 
     # Legend (identity is carried by labels; fills only group node types).
     lx, ly = 11.0, 15.9

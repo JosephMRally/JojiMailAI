@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 """Generate docs/diagrams/store_sequence.png — sequence diagram for the
 MailStore component (user-stories/typescript_mail_store.md): upsertMessages
-indexing and Bloom-prescreened searchText, both through the shared
-tokenize/bloom modules and the thin injected DbHandle.
+writes rows, and searchText tokenizes the query, scans the account's messages,
+and verifies each against the stored subject + body for exact results — all
+through the shared tokenize module and the thin injected DbHandle.
 
 Reproducible: .venv/bin/python docs/diagrams/src/store_sequence.py
 """
@@ -26,11 +27,10 @@ ACTORS = [
     ("React UI", "(via MailStore\ninterface only)", BOX_FILL),
     ("SqliteMailStore", "(concrete MailStore)", STORE_FILL),
     ("tokenize.ts", "(shared tokenizer\n+ stopwords.ts)", BOX_FILL),
-    ("bloom.ts", "(m=2048, k=4,\nFNV-1a x2, K-M)", BOX_FILL),
     ("DbHandle", "(injected: sql.js in tests,\nCapacitor SQLite in prod)", BOX_FILL),
 ]
-X = [1.3, 4.1, 6.7, 9.0, 11.6]
-TOP, BOTTOM = 19.6, 1.9
+X = [1.6, 4.9, 8.1, 11.1]
+TOP, BOTTOM = 19.6, 4.2
 
 
 def box(ax, x, y, w, h, fill, edge=LINE):
@@ -59,7 +59,7 @@ def self_call(ax, y, x, label):
 
 
 def phase(ax, y_top, y_bot, title):
-    ax.add_patch(FancyBboxPatch((0.25, y_bot), 12.1, y_top - y_bot,
+    ax.add_patch(FancyBboxPatch((0.25, y_bot), 12.3, y_top - y_bot,
                                 boxstyle="round,pad=0.05", linewidth=1.0,
                                 facecolor=PHASE_FILL, edgecolor=LINE, zorder=0))
     ax.text(0.45, y_top - 0.14, title, ha="left", va="top",
@@ -68,11 +68,11 @@ def phase(ax, y_top, y_bot, title):
 
 def main() -> None:
     fig, ax = plt.subplots(figsize=(12.8, 9.8))
-    ax.set_xlim(0, 12.6)
+    ax.set_xlim(0, 12.8)
     ax.set_ylim(1.5, 21.6)
     ax.axis("off")
 
-    ax.text(0.25, 21.3, "MailStore — sequence: index on upsert, Bloom-prescreened exact search",
+    ax.text(0.25, 21.3, "MailStore — sequence: write rows on upsert, exact text search on scan",
             fontsize=13, color=INK, fontweight="bold", ha="left", va="top")
     ax.text(0.25, 20.75, "user-stories/typescript_mail_store.md · all storage local, no network",
             fontsize=9, color=MUTED, ha="left", va="top")
@@ -86,32 +86,26 @@ def main() -> None:
                 fontsize=9.6, color=INK, fontweight="bold")
         ax.text(x, TOP - 0.68, sub, ha="center", va="top", fontsize=7.2, color=MUTED)
 
-    ui, store, tok, blm, db = X
+    ui, store, tok, db = X
 
-    # Phase 1: upsertMessages.
-    phase(ax, 18.1, 12.0, "upsertMessages(accountId, messages) — index while writing")
+    # Phase 1: upsertMessages — write rows (no separate search index).
+    phase(ax, 18.1, 13.4, "upsertMessages(accountId, messages) — write rows, no separate index")
     arrow(ax, 17.1, ui, store, "upsertMessages(accountId, messages)")
-    arrow(ax, 16.4, store, tok, "messageTokens(subject, bodyPlain)")
-    arrow(ax, 15.75, tok, store, "distinct tokens (lowercased; stop/short words dropped)", dashed=True)
-    arrow(ax, 15.1, store, blm, "createBloom(tokens)")
-    arrow(ax, 14.45, blm, store, "256-byte filter (2048 bits, k=4)", dashed=True)
-    arrow(ax, 13.8, store, db, "run(INSERT … ON CONFLICT(message_id) DO UPDATE …, [row, bloom BLOB])")
-    arrow(ax, 13.15, store, db, "run(DELETE + INSERT message_tags rows)")
-    arrow(ax, 12.45, store, ui, "resolves — re-sync never duplicates a row", dashed=True)
+    arrow(ax, 16.3, store, db, "run(INSERT … messages(…, body_plain, body_html, unread) ON CONFLICT(message_id) DO UPDATE …, [row])")
+    arrow(ax, 15.5, store, db, "run(DELETE message_tags; INSERT one row per tag)")
+    arrow(ax, 14.7, store, ui, "resolves — re-sync never duplicates a row", dashed=True)
 
-    # Phase 2: searchText.
-    phase(ax, 11.4, 2.2, "searchText(accountId, terms) — prescreen with Bloom, verify for exactness")
-    arrow(ax, 10.15, ui, store, "searchText(accountId, terms)")
-    arrow(ax, 9.5, store, tok, "tokenize(terms)  — same shared rules as indexing")
-    arrow(ax, 8.9, tok, store, "query tokens", dashed=True)
-    self_call(ax, 8.3, store, "no tokens left? → { messages: [], tooGeneric: true }")
-    arrow(ax, 7.3, store, db, "query(SELECT * FROM messages WHERE account_id = ? ORDER BY date DESC)")
-    arrow(ax, 6.65, db, store, "rows incl. bloom BLOBs", dashed=True)
-    arrow(ax, 6.0, store, blm, "bloomContainsAll(row.bloom, tokens) per row")
-    arrow(ax, 5.35, blm, store, "candidates = rows that may contain ALL terms (never false-negative)", dashed=True)
-    self_call(ax, 4.75, store, "verify each candidate: every term ∈ tokens(subject + body_plain)")
-    self_call(ax, 3.85, store, "false positives end here — results identical to a full scan")
-    arrow(ax, 2.85, store, ui, "{ messages: verified matches newest-first, tooGeneric: false }", dashed=True)
+    # Phase 2: searchText — tokenize, scan, verify.
+    phase(ax, 12.8, 4.4, "searchText(accountId, terms) — tokenize, scan the account, verify for exactness")
+    arrow(ax, 11.8, ui, store, "searchText(accountId, terms)")
+    arrow(ax, 11.05, store, tok, "tokenize(terms) — same shared rules as indexing")
+    arrow(ax, 10.35, tok, store, "query tokens (lowercased; stop/short words dropped)", dashed=True)
+    self_call(ax, 9.7, store, "no tokens left? → { messages: [], tooGeneric: true }")
+    arrow(ax, 8.5, store, db, "query(SELECT * FROM messages WHERE account_id = ? ORDER BY date DESC)")
+    arrow(ax, 7.8, db, store, "the account's message rows (newest-first)", dashed=True)
+    self_call(ax, 7.2, store, "for each row: query tokens ⊆ tokens(subject + body_plain)?")
+    self_call(ax, 6.1, store, "collect matches — exact, identical to a full scan")
+    arrow(ax, 5.0, store, ui, "{ messages: verified matches (newest-first), tooGeneric: false }", dashed=True)
 
     out = Path(__file__).resolve().parent.parent / "store_sequence.png"
     fig.savefig(out, dpi=200, bbox_inches="tight", facecolor="white")

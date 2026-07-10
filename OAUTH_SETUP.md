@@ -147,7 +147,6 @@ import { OAuth2Client } from '@capacitor-community/oauth2';
 
 export interface CompositionRoot {
   provider: MailProvider;
-  intelligence: MailIntelligence;
   store: MailStore;
 }
 
@@ -160,19 +159,9 @@ export async function createCompositionRoot(): Promise<CompositionRoot> {
     refreshToken: oauthToken.refreshToken,
   });
 
-  // AI is optional
-  const aiBaseUrl = import.meta.env.VITE_AI_BASE_URL;
-  const intelligence = aiBaseUrl && aiBaseUrl.trim()
-    ? new LocalIntelligence({
-        baseURL: aiBaseUrl,
-        model: import.meta.env.VITE_AI_MODEL,
-        apiKey: import.meta.env.VITE_AI_API_KEY ?? 'not-needed',
-      })
-    : new NoOpIntelligence();
-
   const store = new SqliteMailStore();
 
-  return { provider, intelligence, store };
+  return { provider, store };
 }
 
 async function authenticateWithGmail(): Promise<{ accessToken: string; refreshToken?: string }> {

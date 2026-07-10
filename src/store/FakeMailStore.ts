@@ -1,11 +1,10 @@
 /**
  * In-memory MailStore for tests (user-stories/typescript_mail_store.md):
- * no database at all, but real tokenize/Bloom behavior via the shared
- * modules, so UI tests exercise sync, offline, and search flows against the
- * same indexing semantics as SqliteMailStore.
+ * no database at all, but real tokenize behavior via the shared modules, so
+ * UI tests exercise sync, offline, and search flows against the same indexing
+ * semantics as SqliteMailStore.
  */
 import type { Message, ThreadSummary } from '../providers/model';
-import { bloomContainsAll, createBloom } from './bloom';
 import type { ListStoredThreadsOptions, MailStore, SearchResult } from './MailStore';
 import { messageTokens, tokenize } from './tokenize';
 
@@ -17,7 +16,6 @@ interface StoredThread {
 interface StoredMessage {
   accountId: string;
   message: Message;
-  bloom: Uint8Array;
 }
 
 export class FakeMailStore implements MailStore {
@@ -32,9 +30,7 @@ export class FakeMailStore implements MailStore {
 
   async upsertMessages(accountId: string, messages: Message[]): Promise<void> {
     for (const message of messages) {
-      // Recomputed on every upsert — the index can never go stale.
-      const bloom = createBloom(messageTokens(message.subject, message.bodyPlain));
-      this.messages.set(message.messageId, { accountId, message: structuredClone(message), bloom });
+      this.messages.set(message.messageId, { accountId, message: structuredClone(message) });
     }
   }
 
@@ -71,16 +67,14 @@ export class FakeMailStore implements MailStore {
 
   async searchText(accountId: string, terms: string): Promise<SearchResult> {
     // The same shared tokenizer as indexing: stop words and sub-2-character
-    // tokens never reach the Bloom check.
+    // tokens are dropped before matching.
     const queryTokens = [...new Set(tokenize(terms))];
     if (queryTokens.length === 0) {
       return { messages: [], tooGeneric: true };
     }
     const messages = [...this.messages.values()]
       .filter((stored) => stored.accountId === accountId)
-      // Prescreen: candidates are only messages whose filter may contain ALL terms.
-      .filter((stored) => bloomContainsAll(stored.bloom, queryTokens))
-      // Verify against the stored text — false positives end here.
+      // Verify each message against its stored text — results are exact.
       .filter((stored) => {
         const tokens = messageTokens(stored.message.subject, stored.message.bodyPlain);
         return queryTokens.every((token) => tokens.has(token));

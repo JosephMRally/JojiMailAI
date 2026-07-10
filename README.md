@@ -15,20 +15,10 @@ platform is a proxy registered behind it. Gmail is the first: the app signs in t
 the platform's native OAuth flow and talks to the Gmail API directly. Organization is
 **tag-based** — messages carry any number of tags; there are no folders.
 
-**AI is optional — and when you enable it, it's entirely self-hosted**, behind a
-`MailIntelligence` interface of its own. Point it at any OpenAI-compatible inference
-server you run yourself — [Ollama](https://ollama.com/), [vLLM](https://docs.vllm.ai/),
-or [LM Studio](https://lmstudio.ai/) — and arriving mail is auto-tagged into your real
-tags, long threads open with a summary and action items, replies start from an AI
-draft you edit, and the search box takes plain language ("invoices from ACME last
-month"). Your mail content never leaves your machines, nothing is ever sent without
-your explicit action. Without an AI server configured, the client reads, tags,
-searches, and sends mail exactly the same — only the AI affordances are absent.
-
 **Storage is local-first**: synced mail lives in an on-device SQLite database, so
 previously synced threads stay readable offline, and text search runs on your device —
-each message carries a Bloom filter of its content words (stop words excluded) that
-makes local search instant without ever being able to miss a real match.
+each query is tokenized and matched against every message's stored subject and body,
+so results are exact.
 
 ## Contents
 - Project status
@@ -44,10 +34,9 @@ makes local search instant without ever being able to miss a real match.
 
 **Building from spec.** All components of the build order are implemented and
 tested — the provider interface (`src/providers/`), the `GmailProvider` proxy
-(native OAuth, direct Gmail REST), the optional AI layer (`src/intelligence/`,
-including the `NoOpIntelligence` graceful-degradation backend), the local
-store with Bloom-filter search (`src/store/`), the plug-in system (`src/plugins/`),
-and the React UI with its composition root and Capacitor shell (`src/ui/`,
+(native OAuth, direct Gmail REST), the local store with on-device search
+(`src/store/`), the plug-in system (`src/plugins/`), and the React UI with its
+composition root and Capacitor shell (`src/ui/`,
 `src/composition.ts`, `src/main.tsx`, `capacitor.config.ts`). Every component is
 generated from its spec:
 
@@ -60,11 +49,10 @@ generated from its spec:
 | `user-stories/providers/python_gmail_bridge.md` | Spec (deprecated): the old localhost bridge, kept for reference only |
 | `user-stories/providers/typescript_yahoo_provider.md` | Spec (future): `YahooProvider` over IMAP/SMTP — no code yet |
 | `user-stories/providers/typescript_microsoft_provider.md` | Spec (future): `MicrosoftProvider` over Microsoft Graph — no code yet |
-| `user-stories/typescript_mail_intelligence.md` | Spec: `MailIntelligence` + `LocalIntelligence` + `NoOpIntelligence`, the optional self-hosted AI layer |
-| `user-stories/typescript_mail_store.md` | Spec: `MailStore` + `SqliteMailStore`, offline storage and Bloom-filter search |
+| `user-stories/typescript_mail_store.md` | Spec: `MailStore` + `SqliteMailStore`, offline storage and exact text search |
 | `user-stories/typescript_plugin_system.md` | Spec: `MailPlugin` + `PluginHost`, typed crash-isolated extension points |
 | `user-stories/typescript_email_ui.md` | Spec: the screens and Capacitor shell |
-| `ARCHITECTURE.md` | The app-store distribution model: native OAuth, optional AI, migration notes |
+| `ARCHITECTURE.md` | The app-store distribution model: native OAuth, migration notes |
 | `OAUTH_SETUP.md` | Wiring the native Google OAuth flow per platform |
 | `TODO.md` | Long-term feature backlog (derived from FairEmail) |
 | `CLAUDE.md` | Working rules for code generation (strict TDD) |
@@ -84,25 +72,8 @@ tap **Sign in with Google**, and your mail appears. That's the whole setup:
 - **No server to install.** The app talks to Gmail directly over the platform's
   native OAuth sign-in (ASWebAuthenticationSession on iOS, Custom Tabs on Android,
   browser OAuth on web). Your OAuth token stays in the platform keystore.
-- **AI is opt-in.** Out of the box the AI affordances are simply absent — reading,
-  tagging, searching, and sending all work. To enable AI, run an inference server
-  on a machine you own (see below) and point the app at it.
 - **Offline works.** Synced mail persists on-device and stays readable and
   text-searchable without a connection.
-
-### Enabling AI (optional)
-
-Run [Ollama](https://ollama.com/), [vLLM](https://docs.vllm.ai/), or
-[LM Studio](https://lmstudio.ai/) on your machine or home network and configure the
-app with `VITE_AI_BASE_URL` (e.g. `http://192.168.1.20:11434/v1`; LM Studio uses
-`:1234/v1`, vLLM `:8000/v1`) and `VITE_AI_MODEL` (the model you've pulled/loaded,
-e.g. `llama3.1`). `VITE_AI_API_KEY` defaults to the placeholder `not-needed` that
-self-hosted servers accept; set it only if your server sits behind a gateway that
-checks keys. Mail content goes only to that server — never to a cloud AI service.
-
-**Verify**: `curl $VITE_AI_BASE_URL/models` lists the model you set in
-`VITE_AI_MODEL`. If the server is down or the model is missing mid-session, the AI
-affordances show an actionable error and everything else keeps working.
 
 ## Building from source
 
@@ -186,18 +157,11 @@ Startup checklist — verify each step before moving to the next:
 
 ```
 Startup:
-- [ ] 1. AI server running and model loaded (optional)
-- [ ] 2. App started
-- [ ] 3. Signed in with Google
+- [ ] 1. App started
+- [ ] 2. Signed in with Google
 ```
 
-### 1. Start your AI server (optional)
-
-Start Ollama, vLLM, or LM Studio with your chosen model loaded, and set
-`VITE_AI_BASE_URL` + `VITE_AI_MODEL` (see Enabling AI above). Skip this step
-entirely to run without AI.
-
-### 2. Start the app
+### 1. Start the app
 
 In a browser during development:
 
@@ -213,7 +177,7 @@ npx cap sync
 npx cap run ios      # or: npx cap run android
 ```
 
-### 3. Sign in with Google
+### 2. Sign in with Google
 
 The first mail access prompts for Google sign-in through the platform's native
 OAuth flow; the token is stored by the platform and reused silently afterwards.
@@ -231,7 +195,7 @@ an hour; refresh and restart when calls start failing with AUTH_REQUIRED.
 
 ```
 npx playwright test                            # end-to-end: real browser over the seeded fake build
-npx vitest run                                 # unit: all TypeScript layers (providers, intelligence, store, plugins, UI)
+npx vitest run                                 # unit: all TypeScript layers (providers, store, plugins, UI)
 .venv/bin/python -m pytest bridge/tests/ -q   # deprecated bridge (kept for reference)
 ```
 
@@ -279,5 +243,4 @@ files or URLs is a deliberate non-goal.
 - OAuth tokens live in the platform keystore (Keychain / KeyStore); the app never
   sees your Google password and there is no third-party server in the path.
 - Trash only moves mail to Gmail's Trash — nothing is ever deleted permanently.
-- Mail data stays on your device; AI inference (if enabled) goes only to the server
-  you host.
+- Mail data stays on your device.

@@ -7,7 +7,6 @@
  * - story (human): "load more" exactly when nextPageToken is present;
  * - story (human): triage actions (read/unread/archive/trash) calling the
  *   provider and updating the list optimistically;
- * - story (human): AI-importance ordering with a toggle back to date order;
  * - story (engineer): capability-gated affordances;
  * - story (human): plug-in threadAction entries on thread rows.
  */
@@ -18,16 +17,10 @@ import { PluginHost } from '../../src/plugins/PluginHost';
 import { InMemoryPluginSettings } from '../../src/plugins/PluginSettings';
 import { FakePlugin } from '../../src/plugins/FakePlugin';
 import { renderApp } from './harness';
-import { DEFAULT_MESSAGES, TAGS, makeBulkMessages, makeMessage } from './fixtures';
+import { DEFAULT_MESSAGES, TAGS, makeBulkMessages } from './fixtures';
 import { CapabilityProvider } from './testDoubles';
 
 afterEach(cleanup);
-
-function threadSubjects(): Array<string | null> {
-  return within(screen.getByRole('list', { name: 'Threads' }))
-    .getAllByRole('listitem')
-    .map((item) => item.getAttribute('aria-label'));
-}
 
 describe('story: the thread list shows sender, subject, snippet, date, count, and tag chips', () => {
   it('renders every summary field with unread threads visually distinct', async () => {
@@ -116,43 +109,6 @@ describe('story: triage actions call the provider and update the list optimistic
     await user.click(within(row).getByRole('button', { name: 'Trash' }));
     await waitFor(() => expect(trash).toHaveBeenCalledWith('t-lunch'));
     expect(screen.queryByRole('listitem', { name: 'Lunch plans' })).toBeNull();
-  });
-});
-
-describe('story: the list orders by AI importance first, with a toggle back to date order', () => {
-  it('sorts high before normal before low, and the toggle restores pure date order', async () => {
-    const urgent = makeMessage({
-      messageId: 'mu',
-      threadId: 't-urgent',
-      subject: 'Urgent: server down',
-      bodyPlain: 'The server is down.',
-      date: new Date(2024, 4, 1, 10, 0).getTime(),
-    });
-    const mid = makeMessage({
-      messageId: 'ml',
-      threadId: 't-mid',
-      subject: 'Team offsite',
-      bodyPlain: 'Bring good shoes.',
-      date: new Date(2024, 4, 10, 10, 0).getTime(),
-    });
-    const low = makeMessage({
-      messageId: 'mn',
-      threadId: 't-news',
-      subject: 'Weekly newsletter',
-      bodyPlain: 'Click unsubscribe anytime.',
-      date: new Date(2024, 4, 14, 10, 0).getTime(),
-    });
-    const { user } = await renderApp({ fixtures: { tags: TAGS, messages: [urgent, mid, low] } });
-
-    await user.click(await screen.findByRole('button', { name: 'Refresh' }));
-    await waitFor(() =>
-      expect(threadSubjects()).toEqual(['Urgent: server down', 'Team offsite', 'Weekly newsletter']),
-    );
-
-    await user.click(screen.getByRole('button', { name: 'Sort by date' }));
-    await waitFor(() =>
-      expect(threadSubjects()).toEqual(['Weekly newsletter', 'Team offsite', 'Urgent: server down']),
-    );
   });
 });
 

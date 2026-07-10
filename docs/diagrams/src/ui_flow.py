@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """Generate docs/diagrams/ui_flow.png — flow diagram for the mailbox refresh
 loop (user-stories/typescript_email_ui.md): provider fetch with error copy
-keyed off MailProviderError.code, store upsert, AI classification of newly
-arrived threads that degrades on MailIntelligenceError, and the store-first
-render with importance ordering — offline reading always survives.
+keyed off MailProviderError.code, store upsert of threads and message bodies,
+and the store-first render — offline reading and exact text search always
+survive.
 
 Reproducible: .venv/bin/python docs/diagrams/src/ui_flow.py
 """
@@ -48,66 +48,47 @@ def edge(ax, x1, y1, x2, y2, label=""):
 
 
 def main() -> None:
-    fig, ax = plt.subplots(figsize=(11.8, 13.2))
+    fig, ax = plt.subplots(figsize=(11.8, 10.2))
     ax.set_xlim(0, 15.4)
-    ax.set_ylim(0, 18.2)
+    ax.set_ylim(0, 14)
     ax.axis("off")
 
-    ax.text(0.3, 17.9, "Mailbox refresh — flow: provider sync → store upsert → AI triage → store-first render",
+    ax.text(0.3, 13.7, "Mailbox refresh — flow: provider sync → store upsert → store-first render",
             fontsize=13, color=INK, fontweight="bold", ha="left", va="top")
-    ax.text(0.3, 17.35, "user-stories/typescript_email_ui.md · AI and network failures degrade; stored mail always renders",
+    ax.text(0.3, 13.18, "user-stories/typescript_email_ui.md · network failures degrade to stored mail; exact text search over the store",
             fontsize=9, color=MUTED, ha="left", va="top")
 
     cx = 5.0
-    process(ax, cx, 16.3, "user taps Refresh (or Load more with\nthe page's nextPageToken)", w=6.0, h=1.1, fill=TERMINAL)
-    process(ax, cx, 14.8, "provider.listThreads(tagId, { pageSize, pageToken? })", w=6.6, h=0.9)
-    decision(ax, cx, 13.2, "MailProviderError?", w=4.2, h=1.3)
-    process(ax, 11.5, 13.2, "error copy keyed off code:\nAUTH_REQUIRED → its own message\nNETWORK → alert with Retry",
-            w=5.6, h=1.6)
-    process(ax, 11.5, 10.9, "stored rows stay listed —\npreviously synced mail is still\nreadable offline (MailStore)",
-            w=5.6, h=1.6, fill=TERMINAL)
-    process(ax, cx, 11.5, "store.upsertThreads(page.threads);\nprovider.getThread → store.upsertMessages\nper thread", w=6.4, h=1.5)
-    decision(ax, cx, 9.5, "thread new\nto the app?", w=3.8, h=1.4)
-    process(ax, cx, 7.6, "intelligence.classify(newest, tags)", w=5.4, h=0.9)
-    decision(ax, cx, 5.9, "MailIntelligence-\nError?", w=3.9, h=1.4)
-    process(ax, 11.5, 5.9, "status notice with the error code\n(e.g. AI tagging unavailable\n(AI_UNAVAILABLE)) — sync continues",
-            w=5.8, h=1.6)
-    process(ax, cx, 3.9, "provider.addTag(messageId, suggested) when\nsupportsTags — rendered as distinct 'AI' chips\nwith one-tap undo (removeTag reverses)", w=6.8, h=1.5)
-    process(ax, cx, 1.6, "re-read store.listThreads → order by AI importance\n(high → normal → low, toggle to pure date order) →\nrender rows; show Load more iff nextPageToken", w=7.2, h=1.5, fill=TERMINAL)
+    process(ax, cx, 12.3, "UI Refresh (or Load more with\nthe page's nextPageToken)", w=6.0, h=1.1, fill=TERMINAL)
+    process(ax, cx, 10.75, "provider.listThreads(tagId, { pageSize, pageToken? })", w=6.6, h=0.9)
+    decision(ax, cx, 8.9, "provider call\nfailed?", w=4.2, h=1.4)
+    process(ax, 11.5, 8.9,
+            "normalized error via MailProviderError.code\n(AUTH_REQUIRED shows its own copy;\nNETWORK offers Retry) —\nstored mail stays listed",
+            w=5.9, h=1.9, fill=TERMINAL)
+    process(ax, cx, 6.9, "store.upsertThreads(page.threads)", w=6.0, h=0.9)
+    process(ax, cx, 4.9,
+            "for each thread:\nstore.upsertMessages(provider.getThread(threadId))\n— a failed body fetch leaves the summary usable",
+            w=7.2, h=1.5)
+    process(ax, cx, 2.5,
+            "re-read store.listThreads → render rows\n(sender · subject · snippet · date · count · tags,\nunread badge); show Load more iff nextPageToken",
+            w=7.2, h=1.6, fill=TERMINAL)
 
     # Main path.
-    edge(ax, cx, 15.75, cx, 15.25)
-    edge(ax, cx, 14.35, cx, 13.85)
-    edge(ax, 7.1, 13.2, 8.7, 13.2)
-    ax.text(7.2, 13.38, "yes", ha="left", va="bottom", fontsize=8.6, color=INK, fontweight="bold")
-    edge(ax, 11.5, 12.4, 11.5, 11.7)
-    edge(ax, cx, 12.55, cx, 12.25, label="no")
-    edge(ax, cx, 10.75, cx, 10.2)
-    edge(ax, cx, 8.8, cx, 8.05, label="yes — newest message")
-    edge(ax, cx, 7.15, cx, 6.6)
-    edge(ax, 6.95, 5.9, 8.6, 5.9)
-    ax.text(7.05, 6.08, "yes", ha="left", va="bottom", fontsize=8.6, color=INK, fontweight="bold")
-    edge(ax, cx, 5.2, cx, 4.65, label="no — { tagIds, importance }")
-    edge(ax, cx, 3.15, cx, 2.35)
+    edge(ax, cx, 11.75, cx, 11.2)
+    edge(ax, cx, 10.3, cx, 9.6)
+    edge(ax, 7.1, 8.9, 8.55, 8.9)
+    ax.text(7.2, 9.08, "yes", ha="left", va="bottom", fontsize=8.6, color=INK, fontweight="bold")
+    edge(ax, cx, 8.2, cx, 7.35, label="no")
+    edge(ax, cx, 6.45, cx, 5.65)
+    edge(ax, cx, 4.15, cx, 3.3)
 
-    # Known threads skip classification.
-    ax.plot([3.1, 1.0, 1.0], [9.5, 9.5, 1.6], color=MUTED, linewidth=1.2, zorder=0)
-    edge(ax, 1.0, 1.6, 1.4, 1.6)
-    ax.text(0.6, 8.9, "no — already known:\nnever re-classified,\nnever re-tagged",
-            ha="left", va="top", fontsize=8.4, color=INK, fontweight="bold")
+    # Search shares the same store-first render (exact text, no AI).
+    process(ax, 12.35, 11.4,
+            "search box → store.searchText(query):\ntokenize + match stored subject/body (exact);\nfilter rows to matching threads; empty query\nrestores the list; all-stop-word query →\n'too generic' notice",
+            w=5.9, h=2.2, fill=NOTE)
 
-    # AI failure path rejoins the render.
-    ax.plot([11.5, 11.5], [5.1, 2.35], color=MUTED, linewidth=1.2, zorder=0)
-    edge(ax, 11.5, 2.35, 8.65, 1.85)
-    ax.text(11.7, 3.9, "core flow intact —\nlist, read, tag, compose,\nsend all still work",
-            ha="left", va="top", fontsize=8.4, color=INK, fontweight="bold")
-
-    # Note: search shares the same store-first render.
-    process(ax, 12.6, 16.1, "search box: intelligence.parseSearchQuery →\nremovable criteria chips; text terms →\nstore.searchText (Bloom prescreen); tag/from/\ndate criteria filter the store's rows",
-            w=5.2, h=1.9, fill=NOTE)
-
-    # Legend (kept clear of the flow's left column).
-    lx, ly = 0.35, 13.3
+    # Legend (kept clear of the flow's center column and the right-side boxes).
+    lx, ly = 10.6, 5.7
     for dy, (fill, label) in enumerate([(TERMINAL, "entry / result"),
                                         (PROCESS, "processing step"),
                                         (DECISION, "decision")]):

@@ -1,11 +1,11 @@
 /**
  * Boundary tests for the store layer (user-stories/typescript_mail_store.md):
  * - MailStore is the single storage surface the UI may import, enforced by
- *   the same no-concrete-imports rule that guards providers and intelligence;
+ *   the same no-concrete-imports rule that guards providers;
  * - SqliteMailStore is built on @capacitor-community/sqlite only through a
  *   thin injected database handle — the class itself never touches the
  *   plugin, the filesystem, or the network;
- * - FakeMailStore reuses the real shared tokenize/Bloom modules;
+ * - FakeMailStore reuses the real shared tokenize module;
  * - tests run under node with no DOM, against in-memory sql.js only.
  */
 import { describe, expect, it } from 'vitest';
@@ -29,7 +29,7 @@ function sourceOf(fileName: string): string | undefined {
   return Object.entries(storeSources).find(([path]) => path.endsWith(`/${fileName}`))?.[1];
 }
 
-describe('story: MailStore is the single storage surface the UI may import, enforced like providers and intelligence', () => {
+describe('story: MailStore is the single storage surface the UI may import, enforced like providers', () => {
   it('the store layer ships its contract files', () => {
     const fileNames = Object.keys(storeSources).map((p) => p.split('/').pop());
     expect(fileNames).toEqual(
@@ -89,19 +89,17 @@ describe('story: SqliteMailStore sits behind a thin injected database handle (na
   });
 });
 
-describe('story: FakeMailStore implements the interface in memory with real tokenize/Bloom behavior via the shared modules', () => {
-  it('FakeMailStore.ts imports the shared tokenize and bloom modules', () => {
+describe('story: FakeMailStore implements the interface in memory with real tokenize behavior via the shared module', () => {
+  it('FakeMailStore.ts imports the shared tokenize module', () => {
     const source = sourceOf('FakeMailStore.ts');
     expect(source).toBeDefined();
     expect(source!).toMatch(/from\s+['"]\.\/tokenize['"]/);
-    expect(source!).toMatch(/from\s+['"]\.\/bloom['"]/);
   });
 
-  it('SqliteMailStore.ts indexes and searches through the same shared modules', () => {
+  it('SqliteMailStore.ts indexes and searches through the same shared module', () => {
     const source = sourceOf('SqliteMailStore.ts');
     expect(source).toBeDefined();
     expect(source!).toMatch(/from\s+['"]\.\/tokenize['"]/);
-    expect(source!).toMatch(/from\s+['"]\.\/bloom['"]/);
   });
 });
 

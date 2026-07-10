@@ -2,17 +2,13 @@
  * The compose screen (user-stories/typescript_email_ui.md): to/cc/bcc,
  * subject, and a plain-text body submitted as a Draft through the plug-in
  * composeAction pipeline and then provider.send(), confirming with the
- * returned message id. "Draft with AI" fills the body from
- * intelligence.draftReply (with optional guidance) — nothing is ever sent
- * without the user's explicit action, and an AI failure degrades to error
- * copy with a retry while plain sending keeps working.
+ * returned message id. Nothing is ever sent without the user's explicit action.
  */
 import { useState } from 'react';
-import type { MailIntelligence } from '../intelligence/MailIntelligence';
 import type { PluginHost } from '../plugins/PluginHost';
 import type { MailProvider } from '../providers/MailProvider';
-import type { Draft, Message } from '../providers/model';
-import { describeAiError, toProviderFailure, type ProviderFailure } from './errors';
+import type { Draft } from '../providers/model';
+import { toProviderFailure, type ProviderFailure } from './errors';
 
 export interface ComposePrefill {
   to?: string;
@@ -22,10 +18,7 @@ export interface ComposePrefill {
 export interface ComposeScreenProps {
   provider: MailProvider;
   pluginHost: PluginHost;
-  intelligence: MailIntelligence;
   prefill?: ComposePrefill;
-  /** The thread being replied to; drafts and AI replies start from it. */
-  replyThread?: Message[];
 }
 
 function splitAddresses(value: string): string[] {
@@ -35,22 +28,14 @@ function splitAddresses(value: string): string[] {
     .filter((part) => part !== '');
 }
 
-export function ComposeScreen({
-  provider,
-  pluginHost,
-  intelligence,
-  prefill,
-  replyThread,
-}: ComposeScreenProps) {
+export function ComposeScreen({ provider, pluginHost, prefill }: ComposeScreenProps) {
   const [to, setTo] = useState(prefill?.to ?? '');
   const [cc, setCc] = useState('');
   const [bcc, setBcc] = useState('');
   const [subject, setSubject] = useState(prefill?.subject ?? '');
   const [body, setBody] = useState('');
-  const [guidance, setGuidance] = useState('');
   const [sentId, setSentId] = useState<string | null>(null);
   const [sendError, setSendError] = useState<ProviderFailure | null>(null);
-  const [aiError, setAiError] = useState<string | null>(null);
 
   const composePlugins = pluginHost
     .list()
@@ -72,19 +57,6 @@ export function ComposeScreen({
       setSentId(result.messageId);
     } catch (error) {
       setSendError(toProviderFailure(error));
-    }
-  };
-
-  const draftWithAi = async (): Promise<void> => {
-    setAiError(null);
-    try {
-      const reply = await intelligence.draftReply(
-        replyThread ?? [],
-        guidance.trim() === '' ? undefined : guidance,
-      );
-      setBody(reply.bodyPlain);
-    } catch (error) {
-      setAiError(describeAiError('AI draft unavailable', error));
     }
   };
 
@@ -115,19 +87,8 @@ export function ComposeScreen({
         <label>
           Body <textarea value={body} onChange={(event) => setBody(event.target.value)} />
         </label>
-        <label>
-          Guidance <input value={guidance} onChange={(event) => setGuidance(event.target.value)} />
-        </label>
-        <button type="button" onClick={() => void draftWithAi()}>
-          Draft with AI
-        </button>
         <button type="submit">Send</button>
       </form>
-      {aiError !== null && (
-        <div role="alert">
-          {aiError} <button onClick={() => void draftWithAi()}>Retry</button>
-        </div>
-      )}
       {sendError !== null && (
         <div role="alert">
           {/* Keyed off MailProviderError.code: AUTH_REQUIRED shows the error's

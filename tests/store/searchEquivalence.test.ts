@@ -1,10 +1,9 @@
 /**
  * Full-scan equivalence tests (user-stories/typescript_mail_store.md, human
  * story): search results are identical to what a brute-force scan of every
- * stored message would return — the Bloom filter is an invisible speedup,
- * never a source of missed (false-negative) or phantom (unverified
- * false-positive) results. Runs against both implementations on the fixture
- * corpus and on a larger seeded synthetic corpus.
+ * stored message would return, and identical across both implementations —
+ * never a missed or phantom result. Runs against both implementations on the
+ * fixture corpus and on a larger seeded synthetic corpus.
  */
 import { describe, expect, it } from 'vitest';
 import type { Message } from '../../src/providers/model';

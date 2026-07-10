@@ -6,29 +6,20 @@
  * - story (human): HTML bodies render in a sandboxed iframe (no scripts) with
  *   remote images blocked behind a per-message "load images" action, falling
  *   back to bodyPlain when no HTML exists;
- * - story (human): threads with more than three messages open with an async
- *   AI digest panel that never delays the messages;
- * - story (engineer): AI digest failures show error copy keyed off
- *   MailIntelligenceError.code with a retry;
  * - story (human): add/remove tag chips on a message, gated on supportsTags;
  * - story (human): plug-in messageView panels render above a message,
  *   attributed to their plug-in.
  */
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PluginHost } from '../../src/plugins/PluginHost';
 import { InMemoryPluginSettings } from '../../src/plugins/PluginSettings';
 import { FakePlugin } from '../../src/plugins/FakePlugin';
 import { renderApp } from './harness';
-import { DEFAULT_MESSAGES, PLAN_MESSAGES, TAGS, makeMessage } from './fixtures';
+import { DEFAULT_MESSAGES, TAGS, makeMessage } from './fixtures';
 import { MailProviderError } from '../../src/providers/model';
-import {
-  CapabilityProvider,
-  DeferredDigestIntelligence,
-  FlakyStore,
-  RejectingIntelligence,
-} from './testDoubles';
+import { CapabilityProvider, FlakyStore } from './testDoubles';
 
 afterEach(cleanup);
 
@@ -141,50 +132,6 @@ describe('story: HTML renders sandboxed with remote images blocked until I opt i
     expect(article.textContent).toContain('bob@example.com');
     expect(article.textContent).not.toContain('undefined');
     expect(screen.queryByTitle(/HTML body/)).toBeNull();
-  });
-});
-
-describe('story: long threads open with an async AI digest that never delays the messages', () => {
-  it('shows the messages immediately, then the summary and action items when the digest resolves', async () => {
-    const intelligence = new DeferredDigestIntelligence();
-    const { user } = await renderApp({ intelligence, seed: PLAN_MESSAGES });
-    await openThread(user, 'Planning');
-
-    const articles = await screen.findAllByRole('article');
-    expect(articles).toHaveLength(4);
-    const digest = screen.getByRole('region', { name: 'AI digest' });
-    expect(within(digest).getByText(/summarizing/i)).toBeInTheDocument();
-
-    await act(async () => {
-      intelligence.resolveDigests({
-        summary: 'Deal closed for launch',
-        actionItems: ['Send the contract'],
-      });
-    });
-    expect(await screen.findByText('Deal closed for launch')).toBeInTheDocument();
-    expect(screen.getByText('Send the contract')).toBeInTheDocument();
-  });
-
-  it('threads of three or fewer messages never request a digest', async () => {
-    const intelligence = new DeferredDigestIntelligence();
-    const { user } = await renderApp({ intelligence, seed: DEFAULT_MESSAGES });
-    await openThread(user, 'Quarterly invoice');
-    await screen.findAllByRole('article');
-    expect(screen.queryByRole('region', { name: 'AI digest' })).toBeNull();
-    expect(intelligence.digestCalls).toBe(0);
-  });
-
-  it('a digest failure shows error copy keyed off the code, with a retry that recovers', async () => {
-    const intelligence = new RejectingIntelligence(['summarizeThread'], { times: 1 });
-    const { user } = await renderApp({ intelligence, seed: PLAN_MESSAGES });
-    await openThread(user, 'Planning');
-
-    const digest = await screen.findByRole('region', { name: 'AI digest' });
-    await within(digest).findByText(/AI digest unavailable/i);
-    expect(digest.textContent).toContain('AI_UNAVAILABLE');
-
-    await user.click(within(digest).getByRole('button', { name: 'Retry' }));
-    expect(await screen.findByText(/4 message\(s\)/)).toBeInTheDocument();
   });
 });
 

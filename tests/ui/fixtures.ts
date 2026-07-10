@@ -39,7 +39,7 @@ export function makeMessage(
   };
 }
 
-/** Two-message thread whose newest message is unread; subject/body match the "invoice" AI rule. */
+/** Two-message thread whose newest message is unread; body carries "unpaid" for search tests. */
 export const INVOICE_M1 = makeMessage({
   messageId: 'm1',
   threadId: 't-invoice',
@@ -53,7 +53,7 @@ export const INVOICE_M2 = makeMessage({
   unread: true,
   bodyPlain: 'Bump — the invoice is still unpaid.',
 });
-/** Single-message thread arriving "today", matching no AI rule. */
+/** Single-message thread arriving "today". */
 export const LUNCH_M1 = makeMessage({
   messageId: 'm3',
   threadId: 't-lunch',
@@ -66,7 +66,7 @@ export const LUNCH_M1 = makeMessage({
 
 export const DEFAULT_MESSAGES: Message[] = [INVOICE_M1, INVOICE_M2, LUNCH_M1];
 
-/** A 4-message thread so the AI digest panel triggers (> 3 messages). */
+/** A 4-message thread for multi-message thread-view tests. */
 export const PLAN_MESSAGES: Message[] = [0, 1, 2, 3].map((i) =>
   makeMessage({
     messageId: `plan-m${i + 1}`,
@@ -79,7 +79,7 @@ export const PLAN_MESSAGES: Message[] = [0, 1, 2, 3].map((i) =>
   }),
 );
 
-/** `count` single-message threads for pagination tests; no AI rule words. */
+/** `count` single-message threads for pagination tests. */
 export function makeBulkMessages(count: number): Message[] {
   return Array.from({ length: count }, (_unused, i) =>
     makeMessage({

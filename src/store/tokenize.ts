@@ -1,7 +1,7 @@
 /**
  * The one shared tokenizer (user-stories/typescript_mail_store.md): both
- * indexing (Bloom filter computation on upsert) and querying (searchText)
- * run through this module, so they can never tokenize differently.
+ * indexing (on upsert) and querying (searchText) run through this module, so
+ * they can never tokenize differently.
  *
  * Rules: lowercase, split on runs of non-alphanumeric characters, drop
  * tokens shorter than 2 characters and every bundled English stop word.

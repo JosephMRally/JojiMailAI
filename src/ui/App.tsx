@@ -1,13 +1,12 @@
 /**
  * The root UI component (user-stories/typescript_email_ui.md): a client of
- * the Proxy pattern four times over — it receives the ProviderRegistry, a
- * MailIntelligence, a MailStore, and the PluginHost from the composition
+ * the Proxy pattern three times over — it receives the ProviderRegistry, a
+ * MailStore, and the PluginHost from the composition
  * root and calls only interface methods. State-based navigation (no router):
  * account/tag sidebar, per-tag mailbox, thread view, compose, and plug-in
  * settings. Capability-gated affordances; concrete classes never appear here.
  */
 import { useEffect, useMemo, useState } from 'react';
-import type { MailIntelligence } from '../intelligence/MailIntelligence';
 import type { PluginHost } from '../plugins/PluginHost';
 import type { ProviderCapabilities } from '../providers/MailProvider';
 import type { Message, Tag } from '../providers/model';
@@ -21,7 +20,6 @@ import { ThreadViewScreen } from './ThreadViewScreen';
 
 export interface AppProps {
   registry: ProviderRegistry;
-  intelligence: MailIntelligence;
   store: MailStore;
   pluginHost: PluginHost;
   /** Injectable clock so relative dates are testable; defaults to Date.now. */
@@ -31,7 +29,7 @@ export interface AppProps {
 type Screen =
   | { kind: 'list' }
   | { kind: 'thread'; threadId: string }
-  | { kind: 'compose'; prefill?: ComposePrefill; replyThread?: Message[] }
+  | { kind: 'compose'; prefill?: ComposePrefill }
   | { kind: 'plugins' };
 
 /** "Re: subject", never duplicated when the subject already carries it. */
@@ -39,7 +37,7 @@ export function replySubject(subject: string): string {
   return /^re:/i.test(subject) ? subject : `Re: ${subject}`;
 }
 
-export function App({ registry, intelligence, store, pluginHost, now = Date.now }: AppProps) {
+export function App({ registry, store, pluginHost, now = Date.now }: AppProps) {
   const accounts = registry.listAccounts();
   const [accountId, setAccountId] = useState<string>(accounts[0]);
   const provider = useMemo(() => registry.resolve(accountId), [registry, accountId]);
@@ -76,11 +74,10 @@ export function App({ registry, intelligence, store, pluginHost, now = Date.now 
     };
   }, [provider, loadAttempt]);
 
-  const openReply = (message: Message, thread: Message[]): void => {
+  const openReply = (message: Message): void => {
     setScreen({
       kind: 'compose',
       prefill: { to: message.from, subject: replySubject(message.subject) },
-      replyThread: thread,
     });
   };
 
@@ -130,7 +127,6 @@ export function App({ registry, intelligence, store, pluginHost, now = Date.now 
                 key={`${accountId}|${tagId}`}
                 provider={provider}
                 store={store}
-                intelligence={intelligence}
                 pluginHost={pluginHost}
                 caps={caps}
                 tags={tags}
@@ -145,7 +141,6 @@ export function App({ registry, intelligence, store, pluginHost, now = Date.now 
                 key={screen.threadId}
                 provider={provider}
                 store={store}
-                intelligence={intelligence}
                 pluginHost={pluginHost}
                 caps={caps}
                 tags={tags}
@@ -160,9 +155,7 @@ export function App({ registry, intelligence, store, pluginHost, now = Date.now 
               <ComposeScreen
                 provider={provider}
                 pluginHost={pluginHost}
-                intelligence={intelligence}
                 prefill={screen.prefill}
-                replyThread={screen.replyThread}
               />
             )}
             {screen.kind === 'plugins' && <PluginSettingsScreen pluginHost={pluginHost} />}

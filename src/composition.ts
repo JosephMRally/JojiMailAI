@@ -1,27 +1,13 @@
 /**
  * The composition root (user-stories/typescript_email_ui.md): the ONLY module
  * (with src/main.tsx, which consumes it) allowed to import concrete provider,
- * intelligence, store, or plug-in classes. Everything is constructed here —
- * GmailProvider over the injected native-OAuth token supplier,
- * the intelligence backend from the optional AI config, SqliteMailStore over
- * the injected database handle, and the PluginHost over persisted settings —
- * and handed to the UI as plain interfaces.
+ * store, or plug-in classes. Everything is constructed here — GmailProvider
+ * over the injected native-OAuth token supplier, SqliteMailStore over the
+ * injected database handle, and the PluginHost over persisted settings — and
+ * handed to the UI as plain interfaces.
  *
  * Construction performs no I/O: every backend connects lazily on first use.
- * AI is opt-in (user-stories/typescript_mail_intelligence.md): with no
- * VITE_AI_BASE_URL configured, NoOpIntelligence degrades every AI affordance
- * to an empty result — an app-store install works with zero server setup. A
- * configured-but-broken AI (base URL set, model missing) degrades to a
- * backend that rejects with AI_UNAVAILABLE so the misconfiguration surfaces;
- * core mail flows never block on AI either way.
  */
-import { isAiConfigured, loadAiConfig } from './config';
-import {
-  MailIntelligenceError,
-  type MailIntelligence,
-} from './intelligence/MailIntelligence';
-import { LocalIntelligence } from './intelligence/LocalIntelligence';
-import { NoOpIntelligence } from './intelligence/NoOpIntelligence';
 import type { MailPlugin } from './plugins/MailPlugin';
 import { PluginHost } from './plugins/PluginHost';
 import { LocalStoragePluginSettings, type StorageLike } from './plugins/PluginSettings';
@@ -66,7 +52,6 @@ export interface CompositionOptions {
 
 export interface AppServices {
   registry: ProviderRegistry;
-  intelligence: MailIntelligence;
   store: MailStore;
   pluginHost: PluginHost;
 }
@@ -84,7 +69,7 @@ export function composeApp(options: CompositionOptions): AppServices {
     pluginHost.register(plugin);
   }
 
-  return { registry, intelligence: composeIntelligence(env), store, pluginHost };
+  return { registry, store, pluginHost };
 }
 
 /**
@@ -134,30 +119,5 @@ function defaultGmailAuth(env: EnvLike): () => Promise<string> {
   }
   return async () => {
     throw new Error('no Gmail account is signed in');
-  };
-}
-
-/** AI is opt-in: no VITE_AI_BASE_URL → NoOp; configured-but-broken → surfaced. */
-function composeIntelligence(env: EnvLike): MailIntelligence {
-  if (!isAiConfigured(env)) {
-    return new NoOpIntelligence();
-  }
-  try {
-    return new LocalIntelligence({ config: loadAiConfig(env) });
-  } catch (error) {
-    // e.g. VITE_AI_MODEL unset: AI affordances degrade; mail keeps working.
-    return unavailableIntelligence(error instanceof Error ? error.message : String(error));
-  }
-}
-
-/** A MailIntelligence whose every method rejects with AI_UNAVAILABLE. */
-function unavailableIntelligence(reason: string): MailIntelligence {
-  const reject = <T>(): Promise<T> =>
-    Promise.reject(new MailIntelligenceError('AI_UNAVAILABLE', reason));
-  return {
-    classify: () => reject(),
-    summarizeThread: () => reject(),
-    draftReply: () => reject(),
-    parseSearchQuery: () => reject(),
   };
 }

@@ -2,35 +2,23 @@
  * The thread view (user-stories/typescript_email_ui.md): messages read from
  * the MailStore oldest-first, unread ones marked read via the provider, HTML
  * bodies in a sandboxed script-less iframe with remote images stripped until
- * the per-message opt-in, bodyPlain fallback, an async AI digest panel for
- * threads longer than three messages, optimistic per-message tag chips gated
- * on capabilities().supportsTags, plug-in messageView panels, and a reply
- * action that hands the composer a prefilled draft.
+ * the per-message opt-in, bodyPlain fallback, optimistic per-message tag chips
+ * gated on capabilities().supportsTags, plug-in messageView panels, and a
+ * reply action that hands the composer a prefilled draft.
  */
 import { useCallback, useEffect, useState } from 'react';
-import type { MailIntelligence, ThreadDigest } from '../intelligence/MailIntelligence';
 import type { ViewContribution } from '../plugins/MailPlugin';
 import type { PluginHost } from '../plugins/PluginHost';
 import type { MailProvider, ProviderCapabilities } from '../providers/MailProvider';
 import type { Message, Tag } from '../providers/model';
 import type { MailStore } from '../store/MailStore';
-import { describeAiError, toProviderFailure, type ProviderFailure } from './errors';
+import { toProviderFailure, type ProviderFailure } from './errors';
 import { formatThreadDate } from './format';
 import { blockRemoteImages } from './html';
-
-/** Threads longer than this open with an AI digest panel. */
-export const DIGEST_THRESHOLD = 3;
-
-type DigestState =
-  | { state: 'idle' }
-  | { state: 'loading' }
-  | { state: 'done'; value: ThreadDigest }
-  | { state: 'error'; message: string };
 
 export interface ThreadViewScreenProps {
   provider: MailProvider;
   store: MailStore;
-  intelligence: MailIntelligence;
   pluginHost: PluginHost;
   caps: ProviderCapabilities;
   tags: Tag[];
@@ -44,7 +32,6 @@ export interface ThreadViewScreenProps {
 export function ThreadViewScreen({
   provider,
   store,
-  intelligence,
   pluginHost,
   caps,
   tags,
@@ -57,8 +44,6 @@ export function ThreadViewScreen({
   const [messageTags, setMessageTags] = useState<Record<string, string[]>>({});
   const [loadError, setLoadError] = useState<ProviderFailure | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
-  const [digest, setDigest] = useState<DigestState>({ state: 'idle' });
-  const [digestAttempt, setDigestAttempt] = useState(0);
   const [panels, setPanels] = useState<Record<string, ViewContribution[]>>({});
   const [imagesLoaded, setImagesLoaded] = useState<Record<string, boolean>>({});
 
@@ -84,24 +69,6 @@ export function ThreadViewScreen({
       live = false;
     };
   }, [store, provider, threadId, loadAttempt]);
-
-  // The digest loads asynchronously — the messages never wait on it.
-  useEffect(() => {
-    if (messages === null || messages.length <= DIGEST_THRESHOLD) return;
-    let live = true;
-    setDigest({ state: 'loading' });
-    intelligence.summarizeThread(messages).then(
-      (value) => {
-        if (live) setDigest({ state: 'done', value });
-      },
-      (error: unknown) => {
-        if (live) setDigest({ state: 'error', message: describeAiError('AI digest unavailable', error) });
-      },
-    );
-    return () => {
-      live = false;
-    };
-  }, [messages, intelligence, digestAttempt]);
 
   // Plug-in messageView contributions, attributed per message.
   useEffect(() => {
@@ -145,27 +112,6 @@ export function ThreadViewScreen({
     <section>
       <button onClick={onBack}>Back</button>
       <h2>{messages?.[0]?.subject ?? ''}</h2>
-      {messages !== null && messages.length > DIGEST_THRESHOLD && (
-        <section aria-label="AI digest">
-          {digest.state === 'loading' && <p>Summarizing…</p>}
-          {digest.state === 'done' && (
-            <>
-              <p>{digest.value.summary}</p>
-              <ul>
-                {digest.value.actionItems.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </>
-          )}
-          {digest.state === 'error' && (
-            <div role="alert">
-              {digest.message}{' '}
-              <button onClick={() => setDigestAttempt((attempt) => attempt + 1)}>Retry</button>
-            </div>
-          )}
-        </section>
-      )}
       {loadError !== null ? (
         <div role="alert">
           {loadError.message}{' '}

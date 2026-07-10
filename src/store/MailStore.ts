@@ -1,7 +1,7 @@
 /**
  * The single storage surface the UI may import
  * (user-stories/typescript_mail_store.md) — enforced by the same
- * no-concrete-imports rule that guards providers and intelligence.
+ * no-concrete-imports rule that guards providers.
  * Syncing, offline reading, local search, and account removal all run
  * through this one contract. Pure types — zero I/O.
  */
@@ -22,7 +22,7 @@ export interface SearchResult {
 export interface MailStore {
   /** Idempotent upsert keyed on threadId. */
   upsertThreads(accountId: string, summaries: ThreadSummary[]): Promise<void>;
-  /** Idempotent upsert keyed on messageId; (re)computes each Bloom filter. */
+  /** Idempotent upsert keyed on messageId. */
   upsertMessages(accountId: string, messages: Message[]): Promise<void>;
   /** Threads of an account carrying a tag, newest-first. */
   listThreads(
@@ -34,7 +34,7 @@ export interface MailStore {
   getThread(threadId: string): Promise<Message[]>;
   /** One stored message, or undefined when unknown. */
   getMessage(messageId: string): Promise<Message | undefined>;
-  /** Bloom-prescreened, verification-exact text search over an account. */
+  /** Exact text search over an account's stored messages. */
   searchText(accountId: string, terms: string): Promise<SearchResult>;
   /** Remove every stored row belonging to the account. */
   clear(accountId: string): Promise<void>;

@@ -3,7 +3,7 @@
  * SQLite database (via the jeep-sqlite web store when running in a browser),
  * composes every backend at the composition root, and mounts the React UI.
  * Together with src/composition.ts this is the only place concrete
- * provider/intelligence/store/plug-in classes are named.
+ * provider/store/plug-in classes are named.
  */
 import { CapacitorSQLite, SQLiteConnection } from '@capacitor-community/sqlite';
 import { Capacitor } from '@capacitor/core';
@@ -64,7 +64,6 @@ async function start(): Promise<void> {
   createRoot(container).render(
     <App
       registry={services.registry}
-      intelligence={services.intelligence}
       store={services.store}
       pluginHost={services.pluginHost}
     />,

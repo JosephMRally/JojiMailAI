@@ -3,8 +3,7 @@
  * creates exactly the spec's Output Schema — threads / messages /
  * message_tags with the given columns, nullability, and keys — on an
  * injected in-memory sql.js handle, and persists rows in the spec's storage
- * formats ('|'-joined address lists, 0/1 unread, epoch-ms dates, 256-byte
- * Bloom BLOBs).
+ * formats ('|'-joined address lists, 0/1 unread, epoch-ms dates).
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { SqliteMailStore } from '../../src/store/SqliteMailStore';
@@ -51,7 +50,7 @@ describe('story: a schema mirroring the shared model, created on the thin inject
     ]);
   });
 
-  it('messages has exactly the spec columns — body_plain/body_html nullable, bloom BLOB NOT NULL', async () => {
+  it('messages has exactly the spec columns — body_plain/body_html nullable', async () => {
     expect(await tableInfo(handle, 'messages')).toEqual([
       ['message_id', 'TEXT', 1, 1],
       ['thread_id', 'TEXT', 1, 0],
@@ -65,7 +64,6 @@ describe('story: a schema mirroring the shared model, created on the thin inject
       ['body_plain', 'TEXT', 0, 0],
       ['body_html', 'TEXT', 0, 0],
       ['unread', 'INTEGER', 1, 0],
-      ['bloom', 'BLOB', 1, 0],
     ]);
   });
 
@@ -112,15 +110,6 @@ describe('story: a schema mirroring the shared model, created on the thin inject
       );
       expect(m3.body_plain).toBeNull();
       expect(m3.body_html).toContain('Weekly digest');
-    });
-
-    it('persists the Bloom filter as a 256-byte BLOB on every message row', async () => {
-      const rows = await handle.query('SELECT bloom FROM messages');
-      expect(rows.length).toBe(6);
-      for (const row of rows) {
-        expect(row.bloom).toBeInstanceOf(Uint8Array);
-        expect((row.bloom as Uint8Array).length).toBe(256);
-      }
     });
 
     it('persists one tag row per (message_id, tag_id) pair', async () => {

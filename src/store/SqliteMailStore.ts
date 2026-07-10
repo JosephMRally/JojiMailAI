@@ -2,13 +2,11 @@
  * Concrete MailStore over SQLite (user-stories/typescript_mail_store.md).
  * Built on a thin injected DbHandle — production wires it to the native
  * plugin through the adapter in CapacitorDbHandle.ts, tests inject an
- * in-memory sql.js database — so one store runs on iOS, Android, and web. Each message row carries a 256-byte Bloom filter of its
- * content words (recomputed on every upsert) that prescreens searchText;
- * candidates are verified against the stored subject + body_plain, so
- * results are exact.
+ * in-memory sql.js database — so one store runs on iOS, Android, and web.
+ * searchText scans the account's messages and verifies each against its
+ * stored subject + body_plain with the shared tokenizer, so results are exact.
  */
 import type { Message, ThreadSummary } from '../providers/model';
-import { bloomContainsAll, createBloom } from './bloom';
 import type { DbHandle, DbRow, DbValue } from './DbHandle';
 import type { ListStoredThreadsOptions, MailStore, SearchResult } from './MailStore';
 import { messageTokens, tokenize } from './tokenize';
@@ -37,8 +35,7 @@ CREATE TABLE IF NOT EXISTS messages (
   date INTEGER NOT NULL,
   body_plain TEXT,
   body_html TEXT,
-  unread INTEGER NOT NULL,
-  bloom BLOB NOT NULL
+  unread INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS message_tags (
   message_id TEXT NOT NULL,
@@ -86,13 +83,10 @@ export class SqliteMailStore implements MailStore {
   async upsertMessages(accountId: string, messages: Message[]): Promise<void> {
     await this.init();
     for (const m of messages) {
-      // Recomputed on every upsert, so the index can never go stale
-      // against the stored subject/body_plain.
-      const bloom = createBloom(messageTokens(m.subject, m.bodyPlain));
       await this.db.run(
         `INSERT INTO messages (message_id, thread_id, account_id, from_addr, to_addrs, cc_addrs, bcc_addrs,
-                               subject, date, body_plain, body_html, unread, bloom)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                               subject, date, body_plain, body_html, unread)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(message_id) DO UPDATE SET
            thread_id = excluded.thread_id,
            account_id = excluded.account_id,
@@ -104,8 +98,7 @@ export class SqliteMailStore implements MailStore {
            date = excluded.date,
            body_plain = excluded.body_plain,
            body_html = excluded.body_html,
-           unread = excluded.unread,
-           bloom = excluded.bloom`,
+           unread = excluded.unread`,
         [
           m.messageId,
           m.threadId,
@@ -119,7 +112,6 @@ export class SqliteMailStore implements MailStore {
           m.bodyPlain ?? null,
           m.bodyHtml ?? null,
           m.unread ? 1 : 0,
-          bloom,
         ],
       );
       await this.db.run('DELETE FROM message_tags WHERE message_id = ?', [m.messageId]);
@@ -182,7 +174,7 @@ export class SqliteMailStore implements MailStore {
   async searchText(accountId: string, terms: string): Promise<SearchResult> {
     await this.init();
     // The same shared tokenizer as indexing: stop words and sub-2-character
-    // tokens never reach the Bloom check.
+    // tokens are dropped before matching.
     const queryTokens = [...new Set(tokenize(terms))];
     if (queryTokens.length === 0) {
       return { messages: [], tooGeneric: true };
@@ -193,9 +185,7 @@ export class SqliteMailStore implements MailStore {
     );
     const messages: Message[] = [];
     for (const row of rows) {
-      // Prescreen: candidates are only messages whose filter may contain ALL terms.
-      if (!bloomContainsAll(row.bloom as Uint8Array, queryTokens)) continue;
-      // Verify against the stored text — false positives end here.
+      // Verify each message against its stored text — results are exact.
       const stored = messageTokens(row.subject as string, (row.body_plain as string | null) ?? undefined);
       if (queryTokens.every((token) => stored.has(token))) {
         messages.push(await this.rowToMessage(row));
